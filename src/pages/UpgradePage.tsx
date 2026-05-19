@@ -59,7 +59,7 @@ export default function UpgradePage() {
               cursor: 'pointer',
             }}>
               {b === 'monthly' ? 'Monthly' : 'Annual'}
-              {b === 'annual' && <span style={{ marginLeft: 6, fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', color: 'var(--accent)', letterSpacing: '0.06em' }}>SAVE 40%</span>}
+              {b === 'annual' && <span style={{ marginLeft: 6, fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', color: 'var(--accent)', letterSpacing: '0.06em' }}>SAVE 43%</span>}
             </button>
           ))}
         </div>
@@ -89,10 +89,10 @@ export default function UpgradePage() {
           </div>
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 12 }}>Pro</div>
           <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.75rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-            {billing === 'annual' ? '$9' : '$15'}<span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>/mo</span>
+            {billing === 'annual' ? '$16.58' : '$29'}<span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>/mo</span>
           </div>
           <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 24 }}>
-            {billing === 'annual' ? 'Billed $108/year' : 'Billed monthly'}
+            {billing === 'annual' ? 'billed $199/year' : 'billed monthly — cancel anytime'}
           </div>
           <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {PRO_FEATURES.map(f => (
@@ -110,7 +110,7 @@ export default function UpgradePage() {
         disabled={isPending}
         style={{ width: '100%', background: 'var(--accent)', color: 'var(--accent-fg)', border: 'none', borderRadius: 8, padding: '14px 0', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1rem', cursor: isPending ? 'wait' : 'pointer', opacity: isPending ? 0.7 : 1 }}
       >
-        {isPending ? 'Redirecting…' : `Get Pro ${billing === 'annual' ? '— $9/mo' : '— $15/mo'} →`}
+        {isPending ? 'Redirecting…' : `Get Pro ${billing === 'annual' ? '— $16.58/mo' : '— $29/mo'} →`}
       </button>
 
       <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', margin: '16px 0 0' }}>

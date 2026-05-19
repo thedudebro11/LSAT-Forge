@@ -350,7 +350,7 @@ export default function LandingPage() {
             }}>PRO</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
               <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '2.5rem' }}>
-                {billing === 'monthly' ? '$29' : '$17'}
+                {billing === 'monthly' ? '$29' : '$16.58'}
               </span>
               <span style={{ fontFamily: 'DM Sans, sans-serif', color: 'var(--text-muted)', fontSize: '0.85rem' }}>/mo</span>
             </div>

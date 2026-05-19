@@ -1,6 +1,8 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { FreeTierBanner } from './FreeTierBanner'
+import { supabase } from '../lib/supabase'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -66,6 +68,15 @@ function WeakSpotIcon() {
   )
 }
 
+function AccountIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="9" cy="6.5" r="3" />
+      <path d="M2.5 16c0-3.59 2.91-6.5 6.5-6.5s6.5 2.91 6.5 6.5" />
+    </svg>
+  )
+}
+
 // ── Nav config ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -75,6 +86,7 @@ const NAV_ITEMS = [
   { label: 'Simulation', to: '/simulation', Icon: SimulationIcon, proGated: true  },
   { label: 'Weak Spot',  to: '/weakspot',   Icon: WeakSpotIcon,   proGated: true  },
   { label: 'Analytics',  to: '/analytics',  Icon: AnalyticsIcon,  proGated: true  },
+  { label: 'Account',    to: '/account',    Icon: AccountIcon,    proGated: false },
 ]
 
 // ── Sidebar nav link ──────────────────────────────────────────────────────────
@@ -187,10 +199,28 @@ function Avatar({ avatarUrl, initial }: { avatarUrl?: string; initial: string })
 export function AppShell() {
   const { profile, isPro } = useAuth()
   const navigate = useNavigate()
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const initial = (profile?.full_name ?? profile?.email ?? 'U')[0].toUpperCase()
   const email = profile?.email ?? ''
+  const displayName = profile?.full_name ?? email
   const planLabel = isPro ? 'PRO' : 'FREE'
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    if (dropdownOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [dropdownOpen])
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    navigate('/')
+  }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
@@ -230,43 +260,159 @@ export function AppShell() {
           ))}
         </nav>
 
-        {/* User info — click to go to account */}
-        <div onClick={() => navigate('/account')} style={{
-          padding: '12px 16px',
-          borderTop: '1px solid var(--border)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          minWidth: 0,
-          cursor: 'pointer',
-        }}>
-          <Avatar avatarUrl={profile?.avatar_url} initial={initial} />
-          <div style={{ flex: 1, minWidth: 0 }}>
+        {/* User section with dropdown */}
+        <div ref={dropdownRef} style={{ position: 'relative' }}>
+
+          {/* Dropdown menu — opens upward */}
+          {dropdownOpen && (
             <div style={{
-              fontSize: '0.75rem',
-              fontFamily: 'DM Sans, sans-serif',
-              color: 'var(--text-secondary)',
+              position: 'absolute',
+              bottom: '100%',
+              left: 8,
+              right: 8,
+              marginBottom: 4,
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
               overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.4)',
+              zIndex: 50,
             }}>
-              {email}
+              {/* Header: name + email (non-interactive) */}
+              <div style={{
+                padding: '12px 14px',
+                borderBottom: '1px solid var(--border)',
+              }}>
+                <div style={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  fontFamily: 'DM Sans, sans-serif',
+                  color: 'var(--text-primary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {displayName}
+                </div>
+                {profile?.full_name && (
+                  <div style={{
+                    fontSize: '0.75rem',
+                    fontFamily: 'DM Sans, sans-serif',
+                    color: 'var(--text-muted)',
+                    marginTop: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {email}
+                  </div>
+                )}
+              </div>
+
+              {/* Account Settings */}
+              <button
+                onClick={() => { setDropdownOpen(false); navigate('/account') }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: '1px solid var(--border)',
+                  color: 'var(--text-secondary)',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'background 0.12s, color 0.12s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-primary)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)' }}
+              >
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <circle cx="7.5" cy="5" r="2.5" />
+                  <path d="M2 13c0-3.038 2.462-5.5 5.5-5.5S13 9.962 13 13" />
+                </svg>
+                Account Settings
+              </button>
+
+              {/* Sign Out */}
+              <button
+                onClick={handleSignOut}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'background 0.12s, color 0.12s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--wrong)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)' }}
+              >
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M5.5 7.5H13m0 0l-2.5-2.5M13 7.5l-2.5 2.5" />
+                  <path d="M9 3.5V2.5A1 1 0 008 1.5H2.5A1 1 0 001.5 2.5v10a1 1 0 001 1H8a1 1 0 001-1v-1" />
+                </svg>
+                Sign Out
+              </button>
             </div>
+          )}
+
+          {/* Trigger: user info row */}
+          <div
+            onClick={() => setDropdownOpen(o => !o)}
+            style={{
+              padding: '12px 16px',
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              minWidth: 0,
+              cursor: 'pointer',
+              background: dropdownOpen ? 'var(--bg-elevated)' : 'transparent',
+              transition: 'background 0.15s',
+            }}
+          >
+            <Avatar avatarUrl={profile?.avatar_url} initial={initial} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: '0.75rem',
+                fontFamily: 'DM Sans, sans-serif',
+                color: 'var(--text-secondary)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {email}
+              </div>
+            </div>
+            <span style={{
+              fontSize: '0.625rem',
+              fontWeight: 700,
+              fontFamily: 'DM Sans, sans-serif',
+              letterSpacing: '0.06em',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              flexShrink: 0,
+              background: isPro ? 'rgba(228, 224, 52, 0.15)' : 'var(--bg-elevated)',
+              color: isPro ? 'var(--accent)' : 'var(--text-muted)',
+              border: isPro ? '1px solid rgba(228, 224, 52, 0.3)' : '1px solid var(--border)',
+            }}>
+              {planLabel}
+            </span>
           </div>
-          <span style={{
-            fontSize: '0.625rem',
-            fontWeight: 700,
-            fontFamily: 'DM Sans, sans-serif',
-            letterSpacing: '0.06em',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            flexShrink: 0,
-            background: isPro ? 'rgba(228, 224, 52, 0.15)' : 'var(--bg-elevated)',
-            color: isPro ? 'var(--accent)' : 'var(--text-muted)',
-            border: isPro ? '1px solid rgba(228, 224, 52, 0.3)' : '1px solid var(--border)',
-          }}>
-            {planLabel}
-          </span>
         </div>
       </aside>
 
@@ -277,12 +423,11 @@ export function AppShell() {
       </main>
 
       {/* ── Mobile bottom tab bar ── */}
-      <nav className="md:hidden" style={{
+      <nav className="flex md:hidden" style={{
         position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
-        display: 'flex',
         background: 'var(--bg-surface)',
         borderTop: '1px solid var(--border)',
         zIndex: 40,
