@@ -31,3 +31,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+@media (min-width: 768px) {
+  .bottom-tab-bar {
+    display: none !important;
+  }
+}

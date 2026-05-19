@@ -161,38 +161,6 @@ function MobileTabItem({ to, label, Icon }: { to: string; label: string; Icon: (
   )
 }
 
-// ── Avatar ────────────────────────────────────────────────────────────────────
-
-function Avatar({ avatarUrl, initial }: { avatarUrl?: string; initial: string }) {
-  if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt=""
-        style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    )
-  }
-  return (
-    <div style={{
-      width: 32,
-      height: 32,
-      borderRadius: '50%',
-      background: 'var(--bg-elevated)',
-      border: '1px solid var(--border-strong)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontFamily: 'Syne, sans-serif',
-      fontWeight: 700,
-      fontSize: '0.8rem',
-      color: 'var(--accent)',
-      flexShrink: 0,
-    }}>
-      {initial}
-    </div>
-  )
-}
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
 
@@ -202,7 +170,6 @@ export function AppShell() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  const initial = (profile?.full_name ?? profile?.email ?? 'U')[0].toUpperCase()
   const email = profile?.email ?? ''
   const displayName = profile?.full_name ?? email
   const planLabel = isPro ? 'PRO' : 'FREE'
@@ -385,7 +352,24 @@ export function AppShell() {
               transition: 'background 0.15s',
             }}
           >
-            <Avatar avatarUrl={profile?.avatar_url} initial={initial} />
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt=""
+                onError={(e) => { e.currentTarget.style.display = 'none' }}
+                style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+              />
+            ) : (
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'var(--accent)', color: 'var(--accent-fg)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14,
+                flexShrink: 0,
+              }}>
+                {(profile?.full_name || profile?.email || 'U')[0].toUpperCase()}
+              </div>
+            )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontSize: '0.75rem',
@@ -423,15 +407,19 @@ export function AppShell() {
       </main>
 
       {/* ── Mobile bottom tab bar ── */}
-      <nav className="flex md:hidden" style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: 'var(--bg-surface)',
-        borderTop: '1px solid var(--border)',
-        zIndex: 40,
-      }}>
+      <nav
+        className="md:hidden bottom-tab-bar"
+        style={{
+          display: 'flex',
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: 'var(--bg-surface)',
+          borderTop: '1px solid var(--border)',
+          zIndex: 40,
+        }}
+      >
         {NAV_ITEMS.map(item => (
           <MobileTabItem key={item.to} to={item.to} label={item.label} Icon={item.Icon} />
         ))}
