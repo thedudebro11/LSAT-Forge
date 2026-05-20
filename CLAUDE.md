@@ -8,11 +8,11 @@ what's already built, and the rules you must follow when making changes.
 ## What This Project Is
 
 LSAT Forge is an AI-powered LSAT prep web app. Users practice logical reasoning questions
-generated fresh on demand by the Anthropic API. Free tier: 20 questions lifetime. Pro tier
-($29/mo or $199/yr): unlimited questions, full test simulation, analytics.
+generated fresh on demand by the Anthropic API. Free tier: 20 questions lifetime. Pro tier:
+$29/month or $199/year (save 43%): unlimited questions, full test simulation, analytics.
 
 **Stack:** React 18 + Vite + TypeScript + Tailwind + Supabase (Auth, Postgres, Edge Functions)
-+ Stripe + Anthropic API. Deployed on Vercel.
++ Stripe + Anthropic API. Deployed on Vercel at https://lsat-forge.vercel.app.
 
 ---
 
@@ -23,21 +23,21 @@ generated fresh on demand by the Anthropic API. Free tier: 20 questions lifetime
 | 1 | Project scaffold | ✅ Done | |
 | 2 | Database schema | ✅ Done | `supabase/schema.sql` |
 | 3 | Auth context + protected routes | ✅ Done | `src/context/AuthContext.tsx`, `src/components/ProtectedRoute.tsx` |
-| 4 | App shell (sidebar, mobile nav, free tier banner) | ✅ Done | `src/components/AppShell.tsx`, `FreeTierBanner.tsx`, `PageHeader.tsx` |
+| 4 | App shell (sidebar, mobile nav, free tier banner) | ✅ Done | `src/components/AppShell.tsx` + Account nav item + user dropdown |
 | 5 | Landing page | ✅ Done | `src/pages/LandingPage.tsx` — full implementation |
 | 6 | Auth page (login/signup) | ✅ Done | `src/pages/AuthPage.tsx` — Google OAuth + email/password |
 | 7 | Supabase Edge Functions | ✅ Done | All 6 functions + `_shared/auth.ts` |
 | 8 | React Query hooks | ✅ Done | All 7 hooks in `src/hooks/` |
 | 9 | Session context + state machine | ✅ Done | `src/context/SessionContext.tsx`, `src/components/LoadingQuestions.tsx` |
 | 10 | Question display components | ✅ Done | `QuestionCard`, `ChoiceButton`, `ExplanationBox`, `ProgressBar`, `QuestionTypeTag` |
-| **11** | **Dashboard page** | **⬅ NEXT** | `src/pages/DashboardPage.tsx` — see spec below |
+| 11 | Dashboard page | ✅ Done | `src/pages/DashboardPage.tsx` — mode cards, stats, recent sessions, skeleton loading |
 | 12 | Practice + Drill pages | ❌ Stub | `src/pages/PracticePage.tsx`, `DrillPage.tsx` |
 | 13 | Simulation page | ❌ Stub | `src/pages/SimulationPage.tsx` |
 | 14 | Results + Analytics pages | ❌ Stub | `src/pages/ResultsPage.tsx`, `AnalyticsPage.tsx` |
-| 15 | Upgrade + Account + Success pages | ❌ Stub | `src/pages/UpgradePage.tsx`, `AccountPage.tsx`, `SuccessPage.tsx` |
-| 16 | Polish + Deploy | ❌ Not started | vercel.json, .env.example, error boundary, skeletons |
+| 15 | Upgrade + Account + Success pages | ✅ Done | `src/pages/UpgradePage.tsx`, `AccountPage.tsx`, `SuccessPage.tsx` |
+| 16 | Polish + Deploy | ⚠️ Partial | vercel.json, .env.example exist; error boundary, additional skeletons in progress |
 
-**Next prompt to give Claude:** "Continue the LSAT Forge build from PROMPT 11 — Dashboard page."
+**Next prompt to give Claude:** "Continue the LSAT Forge build from PROMPT 12 — Practice and Drill pages."
 
 ---
 
@@ -230,11 +230,12 @@ ACCOUNT (/account):
 
 SUCCESS (/success):
 - On mount: call refreshProfile() so isPro updates immediately
-- Checkmark icon (large, accent colored)
-- "You're now Pro." in Syne 800
-- Subtitle: "Unlimited questions, full simulations, and analytics — all unlocked."
-- Auto-redirect to /dashboard after 3 seconds (show countdown)
-- useEffect with setTimeout + navigate
+- Celebration emoji (🎉) at top
+- "You're now on Pro" in Syne 800
+- Subtitle: "All features are now unlocked. Start with a full LSAT simulation or drill your weak spots."
+- Auto-redirect to /dashboard after 3 seconds (show countdown in DM Mono)
+- "Go Now →" button to navigate immediately
+- useEffect with setInterval to update countdown every 1 second
 ```
 
 ## PROMPT 16 — Polish + Deploy

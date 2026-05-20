@@ -161,7 +161,9 @@ These checks happen server-side. The client-side `ProtectedRoute requirePro` and
 
 ## Layer 5: Stripe Webhook Signature Verification
 
-The `stripe-webhook` Edge Function must verify every incoming request:
+The `stripe-webhook` Edge Function must verify every incoming request. The function uses
+**`constructEventAsync` (not `constructEvent`)** because the Deno/Edge runtime does not support
+synchronous cryptographic operations.
 
 ```typescript
 const signature = req.headers.get('stripe-signature')
@@ -169,21 +171,29 @@ const body = await req.text()  // must be raw text, not parsed JSON
 
 let event
 try {
-  event = stripe.webhooks.constructEvent(
+  event = await stripe.webhooks.constructEventAsync(
     body,
     signature,
     Deno.env.get('STRIPE_WEBHOOK_SECRET')
   )
-} catch {
-  return new Response('Invalid signature', { status: 400 })
+} catch (err) {
+  const msg = err instanceof Error ? err.message : String(err)
+  console.error('constructEvent failed:', msg)
+  return new Response(JSON.stringify({ error: msg }), { status: 400 })
 }
 ```
 
-**Do not parse the body as JSON before calling `constructEvent`.** Stripe signs the raw body
-bytes. If you parse and re-serialize it, the signature check will fail.
-
-**The webhook secret (`STRIPE_WEBHOOK_SECRET`) is different from the Stripe secret key.**
-It is generated per-webhook endpoint in the Stripe dashboard.
+**Critical requirements:**
+1. Use `constructEventAsync` (async, with await) — synchronous `constructEvent` fails in Deno
+2. Do not parse the body as JSON before calling `constructEventAsync`. Stripe signs the raw body
+   bytes. If you parse and re-serialize it, the signature check will fail.
+3. Deploy the function with `--no-verify-jwt` flag — Stripe sends no Supabase JWT:
+   ```bash
+   npx supabase functions deploy stripe-webhook --project-ref tohhpnxlshiwopoquokz --no-verify-jwt
+   ```
+4. The webhook secret (`STRIPE_WEBHOOK_SECRET`) is different from the Stripe secret key.
+   It is generated per-webhook endpoint in the Stripe dashboard.
+5. Log secret presence for debugging: `console.log('secret present:', !!webhookSecret)`
 
 ---
 

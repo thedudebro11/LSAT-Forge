@@ -64,6 +64,13 @@ A user with `tier: 'monthly'` and `subscription_status: 'canceled'` is **not Pro
 
 This logic lives in `AuthContext` and must not be simplified elsewhere.
 
+**Related: `isLoading` tracks session state only.** AuthContext exposes `isLoading: boolean` which
+reflects Supabase session loading state. **This does not include profile loading.** Background
+profile refreshes (e.g., after Stripe webhook, subscription updates) do not trigger a full-page
+spinner. This prevents UX flicker during normal operations. The `fetchProfile` function uses
+try/finally to guarantee `setProfileLoading(false)` runs even on error, preventing permanent
+spinner state.
+
 ---
 
 ## 4. Free tier cap is 20 questions, lifetime, enforced server-side
@@ -153,6 +160,13 @@ Edge Function in response to Stripe events:
 After a successful checkout, the frontend shows `/success` and calls `refreshProfile()`.
 The profile fetch will show updated state only after the webhook has fired and updated the DB.
 There can be a 1-3 second race window — handle it gracefully (show a loading state, not an error).
+
+**Deployment requirement:** The `stripe-webhook` Edge Function MUST be deployed with the
+`--no-verify-jwt` flag because Stripe sends no Supabase JWT. Without this flag, the Supabase
+gateway rejects all webhook requests with 401:
+```bash
+npx supabase functions deploy stripe-webhook --project-ref <ref> --no-verify-jwt
+```
 
 ---
 

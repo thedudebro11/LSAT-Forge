@@ -237,12 +237,21 @@ use. Never use `!` (non-null assertion) on Supabase results — check and handle
 
 ---
 
-## Planned but not yet built (as of Prompt 4 completion)
+## Status of Key Components (as of latest build)
 
+**Completed:**
 - `SessionContext` — quiz state machine (IDLE → LOADING → ACTIVE → REVIEWING → COMPLETE)
-- All question display components (QuestionCard, ChoiceButton, ExplanationBox, ProgressBar)
-- All data-fetching hooks (useProfile, useSessions, useTypeStats, etc.)
-- All actual page implementations (currently stubs)
-- All Supabase Edge Functions
-- Landing page, Auth page
-- Stripe integration
+- All question display components (QuestionCard, ChoiceButton, ExplanationBox, ProgressBar, QuestionTypeTag)
+- All data-fetching hooks (useProfile, useSessions, useTypeStats, useSimulationResults, useGenerateQuestions, useCompleteSession, useUpgrade)
+- Core page implementations: LandingPage, AuthPage, DashboardPage, AccountPage, SuccessPage
+- All Supabase Edge Functions (generate-questions, complete-session, create-checkout-session, stripe-webhook, cancel-subscription, create-portal-session)
+- Landing page, Auth page, Stripe integration
+
+**In progress or stub:**
+- Practice page (`src/pages/PracticePage.tsx`)
+- Drill page (`src/pages/DrillPage.tsx`)
+- Simulation page (`src/pages/SimulationPage.tsx`)
+- Weak Spot page (`src/pages/WeakSpotPage.tsx`)
+- Results page (`src/pages/ResultsPage.tsx`)
+- Analytics page (`src/pages/AnalyticsPage.tsx`)
+- Upgrade page (`src/pages/UpgradePage.tsx`)

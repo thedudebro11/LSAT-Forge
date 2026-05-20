@@ -58,6 +58,10 @@ Global styles and design token definitions.
 --correct, --wrong, --warning, --info
 ```
 
+**Additional rules:**
+- `.bottom-tab-bar { display: none !important }` at 768px+ media query to hide mobile nav on desktop
+- Tailwind directives (`@tailwind base/components/utilities`)
+
 **Do not** add color values in component files. Reference these variables.
 **Do not** extend `tailwind.config.js` with color values — the variables are the source of truth.
 
@@ -155,16 +159,29 @@ The authenticated layout. Renders using `<Outlet/>` (React Router v6 layout rout
 1. Desktop sidebar (hidden below 768px via `className="hidden md:flex"`)
    - Logo: `LSAT` (white) + `FORGE` (accent), Syne 800
    - Nav links via `NavLink` with `style` function for active state (accent left border)
-   - PRO badge on Drill and Simulation when `!isPro`
-   - User info footer: avatar (initial circle if no `avatar_url`), email, FREE/PRO badge
+   - PRO badge on Drill, Simulation, Weak Spot, Analytics when `!isPro`
+   - 7 nav items: Dashboard, Practice, Drill, Simulation, Weak Spot, Analytics, Account
+   - User dropdown menu: triggered by avatar/name at bottom
+     - Shows user name and email in dropdown header
+     - Account Settings button → `/account`
+     - Sign Out button (red hover state)
+   - Avatar: inline with onError fallback to initial circle (accent bg)
+
 2. Main content: `<FreeTierBanner/>` + `<Outlet/>`
 3. Mobile bottom tab bar (visible below 768px via `className="md:hidden"`)
 
 **Sidebar width:** 240px. Main content has `md:ml-[240px]` offset. The mobile tab bar
 adds `pb-16` to main content to prevent content being hidden behind it.
 
-**Nav items configured in the `NAV_ITEMS` array at the top of the file.** To add a new nav
-item, add to that array. The `proGated` field controls whether the PRO badge shows.
+**Nav items configured in the `NAV_ITEMS` array at the top of the file.** Current items (7 total):
+Dashboard, Practice, Drill (pro), Simulation (pro), Weak Spot (pro), Analytics (pro), Account (free).
+To add a new nav item, add to that array. The `proGated` field controls whether the PRO badge shows.
+
+**User dropdown:**
+- Opens upward from the bottom user section
+- Click-outside handler uses `[]` dependency array (not [dropdownOpen]) to add listener once on mount
+- Shows name and email; Account and Sign Out buttons
+- Dropdown is modal: click Account or Sign Out closes it
 
 ---
 
@@ -192,23 +209,20 @@ Action is right-aligned (e.g., a button). No data fetching.
 
 ## `src/pages/`
 
-All page components are currently stubs returning `<div>PageName</div>`. Implement each
-according to `lsat-specs/08-BUILD-PROMPTS.md`.
-
-| File | Route | Auth | Notes |
-|------|-------|------|-------|
-| `LandingPage.tsx` | `/` | Public | Marketing page |
-| `AuthPage.tsx` | `/login`, `/signup` | Public | Single component, tab toggle |
-| `DashboardPage.tsx` | `/dashboard` | Protected | Hub, mode cards, recent sessions |
-| `PracticePage.tsx` | `/practice` | Protected | Setup + session flow |
-| `DrillPage.tsx` | `/drill` | Pro | Single type drill |
-| `SimulationPage.tsx` | `/simulation` | Pro | Full 81-question test |
-| `WeakSpotPage.tsx` | `/weakspot` | Pro | Auto-generated weak area session |
-| `ResultsPage.tsx` | `/results/:sessionId` | Protected | Post-session results |
-| `AnalyticsPage.tsx` | `/analytics` | Pro | Charts, type accuracy, trends |
-| `UpgradePage.tsx` | `/upgrade` | Protected | Pricing cards, Stripe CTA |
-| `AccountPage.tsx` | `/account` | Protected | Profile, billing management |
-| `SuccessPage.tsx` | `/success` | Protected | Post-checkout confirmation |
+| File | Route | Auth | Status | Notes |
+|------|-------|------|--------|-------|
+| `LandingPage.tsx` | `/` | Public | ✅ Built | Marketing page with CTA |
+| `AuthPage.tsx` | `/login`, `/signup` | Public | ✅ Built | Tab toggle, Google OAuth + email/password |
+| `DashboardPage.tsx` | `/dashboard` | Protected | ✅ Built | Greeting, 4 mode cards, stats row, recent sessions table, skeleton loading |
+| `PracticePage.tsx` | `/practice` | Protected | ❌ Stub | Setup (question types, difficulty, count) + session flow |
+| `DrillPage.tsx` | `/drill` | Pro | ❌ Stub | Single type selector + session flow (20 questions) |
+| `SimulationPage.tsx` | `/simulation` | Pro | ❌ Stub | Pre-test screen, 81 questions across 3 sections with timing |
+| `WeakSpotPage.tsx` | `/weakspot` | Pro | ❌ Stub | Auto-generated weak area session |
+| `ResultsPage.tsx` | `/results/:sessionId` | Protected | ❌ Stub | Score, stats, accuracy by type, question breakdown |
+| `AnalyticsPage.tsx` | `/analytics` | Pro | ❌ Stub | Charts, type accuracy, score trends, weak spot callout |
+| `UpgradePage.tsx` | `/upgrade` | Protected | ❌ Stub | Pricing toggle (monthly $29 / annual $199 "Save 43%"), Stripe CTA |
+| `AccountPage.tsx` | `/account` | Protected | ✅ Built | Profile editing, subscription status, manage billing, cancel sub, delete account |
+| `SuccessPage.tsx` | `/success` | Protected | ✅ Built | Checkmark, "You're now Pro", 3-second auto-redirect to /dashboard with countdown |
 
 ---
 

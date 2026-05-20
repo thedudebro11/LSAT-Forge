@@ -76,6 +76,17 @@ In Vercel Dashboard → Project → Settings → Environment Variables:
 Add all `VITE_` variables for Production, Preview, and Development environments.
 The Edge Function secrets are set in Supabase, not Vercel — they do not go here.
 
+**Also required in Vercel (from Supabase dashboard):**
+In Supabase → Project Settings → Edge Functions → Manage secrets, set:
+- SUPABASE_SERVICE_ROLE_KEY
+- ANTHROPIC_API_KEY
+- STRIPE_SECRET_KEY
+- STRIPE_WEBHOOK_SECRET
+- STRIPE_MONTHLY_PRICE_ID
+- STRIPE_ANNUAL_PRICE_ID
+
+These are NOT Vercel environment variables — they live in Supabase's secure secrets store.
+
 ---
 
 ## `.env.example` (committed to git)
