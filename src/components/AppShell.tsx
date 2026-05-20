@@ -164,7 +164,6 @@ function MobileTabItem({ to, label, Icon }: { to: string; label: string; Icon: (
 // ── AppShell ──────────────────────────────────────────────────────────────────
 
 export function AppShell() {
-  console.log('AppShell v2 - with account nav and user dropdown')
   const { profile, isPro } = useAuth()
   const navigate = useNavigate()
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -180,9 +179,9 @@ export function AppShell() {
         setDropdownOpen(false)
       }
     }
-    if (dropdownOpen) document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [dropdownOpen])
+  }, [])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
