@@ -164,6 +164,7 @@ function MobileTabItem({ to, label, Icon }: { to: string; label: string; Icon: (
 // ── AppShell ──────────────────────────────────────────────────────────────────
 
 export function AppShell() {
+  console.log('AppShell v2 - with account nav and user dropdown')
   const { profile, isPro } = useAuth()
   const navigate = useNavigate()
   const [dropdownOpen, setDropdownOpen] = useState(false)
