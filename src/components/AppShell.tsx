@@ -161,7 +161,6 @@ function MobileTabItem({ to, label, Icon }: { to: string; label: string; Icon: (
   )
 }
 
-
 // ── AppShell ──────────────────────────────────────────────────────────────────
 
 export function AppShell() {
