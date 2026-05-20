@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const user = useUser()
   const { isLoading: sessionLoading } = useSessionContext()
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [profileLoading, setProfileLoading] = useState(false)
+  const [, setProfileLoading] = useState(false)
 
   const fetchProfile = useCallback(async () => {
     if (!user) {
@@ -27,13 +27,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
     setProfileLoading(true)
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    setProfile(data)
-    setProfileLoading(false)
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      setProfile(data)
+    } finally {
+      setProfileLoading(false)
+    }
   }, [user?.id])
 
   useEffect(() => {
@@ -46,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile.subscription_status === 'active'
 
   const questionsRemaining = Math.max(0, 20 - (profile?.questions_used ?? 0))
-  const isLoading = sessionLoading || profileLoading
+  const isLoading = sessionLoading
 
   return (
     <AuthContext.Provider
