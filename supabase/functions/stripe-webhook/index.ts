@@ -12,15 +12,21 @@ serve(async (req) => {
   const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2023-10-16' })
   const supabase = serviceClient()
 
+  const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')
+  console.log('webhook secret present:', !!webhookSecret, 'length:', webhookSecret?.length ?? 0)
+  console.log('signature header present:', !!signature)
+
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(
+    event = await stripe.webhooks.constructEventAsync(
       body,
       signature!,
-      Deno.env.get('STRIPE_WEBHOOK_SECRET')!,
+      webhookSecret!,
     )
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('constructEvent failed:', msg)
+    return new Response(JSON.stringify({ error: msg }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
   switch (event.type) {
