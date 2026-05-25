@@ -36,6 +36,8 @@ serve(async (req) => {
       correctIndex: number
       isCorrect: boolean
       timeSpentSeconds: number
+      selectedTrapType?: string
+      correctDiagnosis?: boolean
     }>
     totalTimeSeconds: number
   }
@@ -66,6 +68,8 @@ serve(async (req) => {
       correct_index: r.correctIndex,
       is_correct: r.isCorrect,
       time_spent_seconds: r.timeSpentSeconds,
+      selected_trap_type: r.selectedTrapType ?? null,
+      correct_diagnosis: r.correctDiagnosis ?? null,
     }))
   )
 

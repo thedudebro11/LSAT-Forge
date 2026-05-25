@@ -7,28 +7,9 @@ import { useAuth } from './AuthContext'
 import { supabase } from '../lib/supabase'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../hooks/useProfile'
+import type { Question, ResponseRecord } from '../types'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface Question {
-  id: string
-  type: string
-  difficulty: 'easy' | 'medium' | 'hard'
-  stimulus: string
-  stem: string
-  choices: string[]
-  correctIndex: number
-  explanation: string
-}
-
-export interface ResponseRecord {
-  questionType: string
-  difficulty: string
-  chosenIndex: number
-  correctIndex: number
-  isCorrect: boolean
-  timeSpentSeconds: number
-}
+export type { Question, ResponseRecord }
 
 type SessionMode = 'practice' | 'drill' | 'simulation' | 'weakspot'
 
@@ -60,6 +41,7 @@ type Action =
   | { type: 'TICK' }
   | { type: 'COMPLETE' }
   | { type: 'RESET' }
+  | { type: 'RECORD_TRAP'; selectedTrapType: string; correctDiagnosis: boolean }
 
 const INITIAL: SessionState = {
   status: 'idle', sessionId: null, mode: null,
@@ -130,6 +112,17 @@ function reducer(state: SessionState, action: Action): SessionState {
     case 'COMPLETE':
       return { ...state, status: 'complete' }
 
+    case 'RECORD_TRAP': {
+      const responses = [...state.responses]
+      if (responses.length === 0) return state
+      responses[responses.length - 1] = {
+        ...responses[responses.length - 1],
+        selectedTrapType: action.selectedTrapType,
+        correctDiagnosis: action.correctDiagnosis,
+      }
+      return { ...state, responses }
+    }
+
     case 'RESET':
       return INITIAL
 
@@ -154,6 +147,7 @@ interface SessionContextValue {
   nextQuestion: () => void
   flagQuestion: (index: number) => void
   skipQuestion: () => void
+  recordTrapDiagnosis: (selectedTrapType: string, correctDiagnosis: boolean) => void
   finishSession: () => Promise<void>
   completeSession: () => void
   reset: () => void
@@ -226,6 +220,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const nextQuestion = useCallback(() => dispatch({ type: 'NEXT' }), [])
   const flagQuestion = useCallback((index: number) => dispatch({ type: 'FLAG', index }), [])
+  const recordTrapDiagnosis = useCallback((selectedTrapType: string, correctDiagnosis: boolean) => {
+    dispatch({ type: 'RECORD_TRAP', selectedTrapType, correctDiagnosis })
+  }, [])
 
   const skipQuestion = useCallback(() => {
     const q = state.questions[state.currentIndex]
@@ -274,7 +271,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     <SessionContext.Provider value={{
       state, currentQuestion,
       startSession, answerQuestion, nextQuestion,
-      flagQuestion, skipQuestion, finishSession, completeSession, reset,
+      flagQuestion, skipQuestion, recordTrapDiagnosis,
+      finishSession, completeSession, reset,
     }}>
       {children}
     </SessionContext.Provider>

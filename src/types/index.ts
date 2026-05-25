@@ -69,7 +69,14 @@ export interface Question {
   stem: string
   choices: string[]
   correctIndex: number
-  explanation: string
+  explanation?: string
+  argument_gap?: string
+  correct_explanation?: string
+  wrong_explanations?: Array<{
+    index: number
+    trap_type: string
+    trap_explanation: string
+  }>
 }
 
 export interface ResponseRecord {
@@ -79,6 +86,8 @@ export interface ResponseRecord {
   correctIndex: number
   isCorrect: boolean
   timeSpentSeconds: number
+  selectedTrapType?: string
+  correctDiagnosis?: boolean
 }
 
 export interface GenerateParams {

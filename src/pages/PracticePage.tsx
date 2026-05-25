@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../context/SessionContext'
+import { useAuth } from '../context/AuthContext'
 import { QuestionCard } from '../components/QuestionCard'
+import { ElaborativePrompt } from '../components/ElaborativePrompt'
 import { LoadingQuestions } from '../components/LoadingQuestions'
 import { PageHeader } from '../components/PageHeader'
 import { QUESTION_TYPES, DIFFICULTY_OPTIONS } from '../constants'
@@ -57,7 +59,8 @@ function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel
 
 export default function PracticePage() {
   const navigate = useNavigate()
-  const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, reset } = useSession()
+  const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, recordTrapDiagnosis, reset } = useSession()
+  const { profile } = useAuth()
 
   // Setup state
   const [allTypes, setAllTypes] = useState(true)
@@ -66,6 +69,18 @@ export default function PracticePage() {
   const [count, setCount] = useState(5)
   const [error, setError] = useState('')
   const [showExit, setShowExit] = useState(false)
+  const [elaborativeDone, setElaborativeDone] = useState(false)
+  const [trapSelected, setTrapSelected] = useState(false)
+
+  useEffect(() => {
+    setElaborativeDone(false)
+    setTrapSelected(false)
+  }, [state.currentIndex, state.sessionId])
+
+  const handleTrapSelect = (trapType: string, correctDiagnosis: boolean) => {
+    recordTrapDiagnosis(trapType, correctDiagnosis)
+    setTrapSelected(true)
+  }
 
   const toggleType = (v: string) => {
     setAllTypes(false)
@@ -96,15 +111,35 @@ export default function PracticePage() {
 
   // Session active/reviewing
   if ((state.status === 'active' || state.status === 'reviewing') && currentQuestion) {
+    const exitBtn = (
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button onClick={() => setShowExit(true)} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--text-muted)',
+        }}>✕ Exit</button>
+      </div>
+    )
+
+    // Elaborative prompt — show before question for new LR questions with argument_gap
+    if (state.status === 'active' && !elaborativeDone && currentQuestion.argument_gap) {
+      return (
+        <div style={{ padding: '24px', maxWidth: 720, margin: '0 auto' }}>
+          {showExit && <ConfirmModal onConfirm={handleExit} onCancel={() => setShowExit(false)} />}
+          {exitBtn}
+          <ElaborativePrompt
+            stimulus={currentQuestion.stimulus}
+            onContinue={() => setElaborativeDone(true)}
+          />
+        </div>
+      )
+    }
+
+    const canAdvance = trapSelected || lastResponse?.isCorrect || !currentQuestion.wrong_explanations?.length
+
     return (
       <div style={{ padding: '24px', maxWidth: 720, margin: '0 auto' }}>
         {showExit && <ConfirmModal onConfirm={handleExit} onCancel={() => setShowExit(false)} />}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-          <button onClick={() => setShowExit(true)} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--text-muted)',
-          }}>✕ Exit</button>
-        </div>
+        {exitBtn}
         <QuestionCard
           question={currentQuestion}
           questionNumber={state.currentIndex + 1}
@@ -114,6 +149,8 @@ export default function PracticePage() {
           answered={state.status === 'reviewing'}
           chosenIndex={lastResponse?.chosenIndex}
           showExplanation={state.status === 'reviewing'}
+          questionsUsed={profile?.questions_used ?? 0}
+          onTrapSelect={handleTrapSelect}
         />
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
           {state.status === 'active' && (
@@ -124,7 +161,7 @@ export default function PracticePage() {
               color: 'var(--text-muted)', cursor: 'pointer',
             }}>Skip</button>
           )}
-          {state.status === 'reviewing' && (
+          {state.status === 'reviewing' && canAdvance && (
             <button onClick={nextQuestion} style={{
               background: 'var(--accent)', border: 'none', borderRadius: 8,
               padding: '10px 28px', fontFamily: 'Syne, sans-serif',

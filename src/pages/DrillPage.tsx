@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../context/SessionContext'
+import { useAuth } from '../context/AuthContext'
 import { QuestionCard } from '../components/QuestionCard'
+import { ElaborativePrompt } from '../components/ElaborativePrompt'
 import { LoadingQuestions } from '../components/LoadingQuestions'
 import { PageHeader } from '../components/PageHeader'
 import { QUESTION_TYPES } from '../constants'
@@ -25,12 +27,25 @@ function Chip({ label, selected, onClick }: { label: string; selected: boolean; 
 export default function DrillPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, reset } = useSession()
+  const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, recordTrapDiagnosis, reset } = useSession()
+  const { profile } = useAuth()
 
   const [questionType, setQuestionType] = useState(searchParams.get('type') ?? '')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
   const [error, setError] = useState('')
   const [showExit, setShowExit] = useState(false)
+  const [elaborativeDone, setElaborativeDone] = useState(false)
+  const [trapSelected, setTrapSelected] = useState(false)
+
+  useEffect(() => {
+    setElaborativeDone(false)
+    setTrapSelected(false)
+  }, [state.currentIndex, state.sessionId])
+
+  const handleTrapSelect = (trapType: string, correctDiagnosis: boolean) => {
+    recordTrapDiagnosis(trapType, correctDiagnosis)
+    setTrapSelected(true)
+  }
 
   const handleStart = async () => {
     if (!questionType) { setError('Select a question type to drill.'); return }
@@ -49,25 +64,43 @@ export default function DrillPage() {
   if (state.status === 'loading') return <LoadingQuestions />
 
   if ((state.status === 'active' || state.status === 'reviewing') && currentQuestion) {
+    const exitModal = showExit && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '32px', maxWidth: 340, width: '90%' }}>
+          <p style={{ fontFamily: 'DM Sans, sans-serif', color: 'var(--text-primary)', marginBottom: 20 }}>Exit this drill? Progress will be lost.</p>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setShowExit(false)} style={{ flex: 1, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px', color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={handleExit} style={{ flex: 1, background: 'var(--wrong)', border: 'none', borderRadius: 8, padding: '9px', color: '#fff', fontFamily: 'Syne, sans-serif', fontWeight: 700, cursor: 'pointer' }}>Exit</button>
+          </div>
+        </div>
+      </div>
+    )
+    const header = (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.68rem', letterSpacing: '0.08em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+          Drill — {QUESTION_TYPES.find(t => t.value === questionType)?.label ?? questionType}
+        </span>
+        <button onClick={() => setShowExit(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--text-muted)' }}>✕ Exit</button>
+      </div>
+    )
+
+    if (state.status === 'active' && !elaborativeDone && currentQuestion.argument_gap) {
+      return (
+        <div style={{ padding: '24px', maxWidth: 720, margin: '0 auto' }}>
+          {exitModal}{header}
+          <ElaborativePrompt
+            stimulus={currentQuestion.stimulus}
+            onContinue={() => setElaborativeDone(true)}
+          />
+        </div>
+      )
+    }
+
+    const canAdvance = trapSelected || lastResponse?.isCorrect || !currentQuestion.wrong_explanations?.length
+
     return (
       <div style={{ padding: '24px', maxWidth: 720, margin: '0 auto' }}>
-        {showExit && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '32px', maxWidth: 340, width: '90%' }}>
-              <p style={{ fontFamily: 'DM Sans, sans-serif', color: 'var(--text-primary)', marginBottom: 20 }}>Exit this drill? Progress will be lost.</p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setShowExit(false)} style={{ flex: 1, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px', color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleExit} style={{ flex: 1, background: 'var(--wrong)', border: 'none', borderRadius: 8, padding: '9px', color: '#fff', fontFamily: 'Syne, sans-serif', fontWeight: 700, cursor: 'pointer' }}>Exit</button>
-              </div>
-            </div>
-          </div>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.68rem', letterSpacing: '0.08em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Drill — {QUESTION_TYPES.find(t => t.value === questionType)?.label ?? questionType}
-          </span>
-          <button onClick={() => setShowExit(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--text-muted)' }}>✕ Exit</button>
-        </div>
+        {exitModal}{header}
         <QuestionCard
           question={currentQuestion}
           questionNumber={state.currentIndex + 1}
@@ -77,12 +110,14 @@ export default function DrillPage() {
           answered={state.status === 'reviewing'}
           chosenIndex={lastResponse?.chosenIndex}
           showExplanation={state.status === 'reviewing'}
+          questionsUsed={profile?.questions_used ?? 0}
+          onTrapSelect={handleTrapSelect}
         />
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
           {state.status === 'active' && (
             <button onClick={skipQuestion} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 20px', fontFamily: 'DM Sans, sans-serif', fontSize: '0.875rem', color: 'var(--text-muted)', cursor: 'pointer' }}>Skip</button>
           )}
-          {state.status === 'reviewing' && (
+          {state.status === 'reviewing' && canAdvance && (
             <button onClick={nextQuestion} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '10px 28px', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.9rem', color: 'var(--accent-fg)', cursor: 'pointer' }}>
               {state.currentIndex + 1 < state.questions.length ? 'Next →' : 'See Results →'}
             </button>

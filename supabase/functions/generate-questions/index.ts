@@ -349,7 +349,26 @@ OUTPUT FORMAT
 
 Return ONLY a valid JSON array. No preamble. No markdown code fences. No trailing text.
 
-Each element: { "id": "uuid-v4", "type": "string", "difficulty": "easy|medium|hard", "stimulus": "string", "stem": "string", "choices": ["A text", "B text", "C text", "D text", "E text"], "correctIndex": 0-4, "explanation": "string explaining why correct answer is right AND why each wrong answer fails with specific trap type" }`
+Each element must have ALL of these fields:
+{
+  "id": "uuid-v4",
+  "type": "string (question type)",
+  "difficulty": "easy|medium|hard",
+  "stimulus": "string",
+  "argument_gap": "One sentence: what logical gap exists between the premises and conclusion — what the argument assumes but never proves.",
+  "stem": "string",
+  "choices": ["A text", "B text", "C text", "D text", "E text"],
+  "correctIndex": 0,
+  "correct_explanation": "2-3 sentences explaining exactly why the correct answer is right.",
+  "wrong_explanations": [
+    { "index": 0, "trap_type": "Out of Scope", "trap_explanation": "One sentence why this choice fails." },
+    { "index": 1, "trap_type": "Opposite", "trap_explanation": "One sentence why this choice fails." },
+    { "index": 2, "trap_type": "Shell Game", "trap_explanation": "One sentence why this choice fails." },
+    { "index": 3, "trap_type": "Distortion", "trap_explanation": "One sentence why this choice fails." }
+  ]
+}
+
+The wrong_explanations array must have exactly 4 entries — one for each wrong answer. The index field in each entry is the 0-based index into the choices array for that wrong answer (skip the correctIndex position). Each trap_type must be one of: "Opposite", "Shell Game", "Out of Scope", "Distortion", "Extreme Language", "Half-Right", "Premise Repeat", "Attacks Mistaken Reversal".`
 
 const RC_SYSTEM_PROMPT = `You are an expert LSAT Reading Comprehension question writer. Your single standard: every passage and question set you generate must be indistinguishable from an official LSAT PrepTest RC section. All content is entirely original.
 
@@ -516,7 +535,7 @@ serve(async (req) => {
 
   const userPrompt = isRC
     ? `Generate one Reading Comprehension passage set with ${count} questions. Vary the topic. Make all content entirely original. Return JSON matching the schema exactly.`
-    : `Generate ${count} original LSAT-style Logical Reasoning questions. Types to include: ${types.join(', ')}. Difficulty: ${difficulty}. Vary the topics. Return a JSON array of objects with fields: id (uuid), type, difficulty, stimulus, stem, choices (array of 5 strings), correctIndex (0-4), explanation.`
+    : `Generate ${count} original LSAT-style Logical Reasoning questions. Types to include: ${types.join(', ')}. Difficulty: ${difficulty}. Vary the topics. Return a JSON array matching the schema exactly — every question must include: id, type, difficulty, stimulus, argument_gap, stem, choices (5 strings), correctIndex (0-4), correct_explanation, wrong_explanations (4 entries with index/trap_type/trap_explanation).`
 
   const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
