@@ -19,6 +19,7 @@ interface Props {
   chosenIndex?: number
   showExplanation?: boolean
   questionsUsed?: number
+  isPro?: boolean
   onTrapSelect?: (trapType: string, correctDiagnosis: boolean) => void
 }
 
@@ -27,7 +28,7 @@ const LETTERS = ['A', 'B', 'C', 'D', 'E']
 export function QuestionCard({
   question, questionNumber, totalQuestions, mode,
   onAnswer, answered, chosenIndex, showExplanation,
-  questionsUsed = 0, onTrapSelect,
+  questionsUsed = 0, isPro = false, onTrapSelect,
 }: Props) {
   const isTimed = mode === 'timed'
   const [selectedTrapType, setSelectedTrapType] = useState<string | null>(null)
@@ -147,6 +148,7 @@ export function QuestionCard({
           actualTrapType={actualTrapType}
           isCorrect={!isWrong}
           questionsUsed={questionsUsed}
+          isPro={isPro}
           questionType={question.type}
           stimulus={question.stimulus}
           stem={question.stem}

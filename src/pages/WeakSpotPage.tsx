@@ -13,7 +13,7 @@ import { FreeLimitError } from '../hooks/useGenerateQuestions'
 export default function WeakSpotPage() {
   const navigate = useNavigate()
   const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, recordTrapDiagnosis, reset } = useSession()
-  const { profile } = useAuth()
+  const { profile, isPro } = useAuth()
   const { data: typeStats = [], isLoading: statsLoading } = useTypeStats()
   const [error, setError] = useState('')
   const [showExit, setShowExit] = useState(false)
@@ -101,6 +101,7 @@ export default function WeakSpotPage() {
           chosenIndex={lastResponse?.chosenIndex}
           showExplanation={state.status === 'reviewing'}
           questionsUsed={profile?.questions_used ?? 0}
+          isPro={isPro}
           onTrapSelect={handleTrapSelect}
         />
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>

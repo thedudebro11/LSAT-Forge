@@ -28,7 +28,7 @@ export default function DrillPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, recordTrapDiagnosis, reset } = useSession()
-  const { profile } = useAuth()
+  const { profile, isPro } = useAuth()
 
   const [questionType, setQuestionType] = useState(searchParams.get('type') ?? '')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
@@ -111,6 +111,7 @@ export default function DrillPage() {
           chosenIndex={lastResponse?.chosenIndex}
           showExplanation={state.status === 'reviewing'}
           questionsUsed={profile?.questions_used ?? 0}
+          isPro={isPro}
           onTrapSelect={handleTrapSelect}
         />
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>

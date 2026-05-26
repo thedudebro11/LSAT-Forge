@@ -60,7 +60,7 @@ function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel
 export default function PracticePage() {
   const navigate = useNavigate()
   const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, recordTrapDiagnosis, reset } = useSession()
-  const { profile } = useAuth()
+  const { profile, isPro } = useAuth()
 
   // Setup state
   const [allTypes, setAllTypes] = useState(true)
@@ -150,6 +150,7 @@ export default function PracticePage() {
           chosenIndex={lastResponse?.chosenIndex}
           showExplanation={state.status === 'reviewing'}
           questionsUsed={profile?.questions_used ?? 0}
+          isPro={isPro}
           onTrapSelect={handleTrapSelect}
         />
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>

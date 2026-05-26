@@ -7,6 +7,7 @@ interface Props {
   actualTrapType?: string | null
   isCorrect?: boolean
   questionsUsed?: number
+  isPro?: boolean
   questionType?: string
   stimulus?: string
   stem?: string
@@ -20,6 +21,7 @@ export function ExplanationBox({
   actualTrapType,
   isCorrect = true,
   questionsUsed = 0,
+  isPro = false,
   questionType = '',
   stimulus = '',
   stem = '',
@@ -49,7 +51,7 @@ export function ExplanationBox({
 
   const handleSkip = () => setFeedbackState('submitted')
 
-  const showFeedback = questionsUsed >= 3
+  const showFeedback = questionsUsed >= 3 || isPro
 
   return (
     <div style={{
