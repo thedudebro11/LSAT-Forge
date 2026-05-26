@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useSession } from '../context/SessionContext'
 import { FreeTierBanner } from './FreeTierBanner'
 import { supabase } from '../lib/supabase'
 
@@ -91,15 +92,17 @@ const NAV_ITEMS = [
 
 // ── Sidebar nav link ──────────────────────────────────────────────────────────
 
-function SideNavLink({ to, label, Icon, showProBadge }: {
+function SideNavLink({ to, label, Icon, showProBadge, onNavClick }: {
   to: string
   label: string
   Icon: () => JSX.Element
   showProBadge: boolean
+  onNavClick: (e: React.MouseEvent, to: string) => void
 }) {
   return (
     <NavLink
       to={to}
+      onClick={(e) => onNavClick(e, to)}
       style={({ isActive }) => ({
         display: 'flex',
         alignItems: 'center',
@@ -139,10 +142,16 @@ function SideNavLink({ to, label, Icon, showProBadge }: {
 
 // ── Mobile tab item ───────────────────────────────────────────────────────────
 
-function MobileTabItem({ to, label, Icon }: { to: string; label: string; Icon: () => JSX.Element }) {
+function MobileTabItem({ to, label, Icon, onNavClick }: {
+  to: string
+  label: string
+  Icon: () => JSX.Element
+  onNavClick: (e: React.MouseEvent, to: string) => void
+}) {
   return (
     <NavLink
       to={to}
+      onClick={(e) => onNavClick(e, to)}
       style={({ isActive }) => ({
         display: 'flex',
         flexDirection: 'column',
@@ -166,8 +175,19 @@ function MobileTabItem({ to, label, Icon }: { to: string; label: string; Icon: (
 export function AppShell() {
   const { profile, isPro } = useAuth()
   const navigate = useNavigate()
+  const { state, pauseSession, reset } = useSession()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Nav protection state
+  const [pendingNavTarget, setPendingNavTarget] = useState<string | null>(null)
+  const [showNavModal, setShowNavModal] = useState(false)
+  const [showSimLockModal, setShowSimLockModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  const isSessionActive = state.status === 'active' || state.status === 'reviewing'
+  const sessionMode = state.mode
 
   const email = profile?.email ?? ''
   const displayName = profile?.full_name ?? email
@@ -188,8 +208,153 @@ export function AppShell() {
     navigate('/')
   }
 
+  function handleNavClick(e: React.MouseEvent, to: string) {
+    if (isSessionActive && sessionMode !== 'simulation') {
+      e.preventDefault()
+      setPendingNavTarget(to)
+      setShowNavModal(true)
+    } else if (isSessionActive && sessionMode === 'simulation') {
+      e.preventDefault()
+      setPendingNavTarget(to)
+      setShowSimLockModal(true)
+    }
+  }
+
+  async function handleSaveAndLeave() {
+    setSaving(true)
+    setSaveError('')
+    try {
+      await pauseSession()
+      setShowNavModal(false)
+    } catch {
+      setSaving(false)
+      setSaveError('Failed to save session. Please try again.')
+    }
+  }
+
+  async function handleAbandon() {
+    const sessionId = state.sessionId
+    reset()
+    setShowNavModal(false)
+    navigate(pendingNavTarget ?? '/dashboard')
+    if (sessionId) {
+      await supabase.from('sessions').update({ status: 'abandoned' }).eq('id', sessionId)
+    }
+  }
+
+  async function handleSimAbandon() {
+    const sessionId = state.sessionId
+    reset()
+    setShowSimLockModal(false)
+    navigate(pendingNavTarget ?? '/dashboard')
+    if (sessionId) {
+      await supabase.from('sessions').update({ status: 'abandoned' }).eq('id', sessionId)
+    }
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+
+      {/* ── Pauseable session modal (Practice / Drill / Weak Spot) ── */}
+      {showNavModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+        }}>
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            borderRadius: 14, padding: '32px', maxWidth: 380, width: '90%',
+          }}>
+            <h3 style={{
+              fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1.1rem',
+              margin: '0 0 10px', color: 'var(--text-primary)',
+            }}>Save your progress?</h3>
+            <p style={{
+              fontFamily: 'DM Sans, sans-serif', fontSize: '0.875rem',
+              color: 'var(--text-secondary)', margin: '0 0 24px', lineHeight: 1.55,
+            }}>
+              Your session will be saved and you can resume from any device.
+            </p>
+            {saveError && (
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--wrong)', margin: '0 0 14px' }}>
+                {saveError}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+              <button
+                onClick={() => { setShowNavModal(false); setSaveError('') }}
+                style={{
+                  flex: 1, background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  borderRadius: 8, padding: '10px', color: 'var(--text-primary)',
+                  fontFamily: 'DM Sans, sans-serif', fontWeight: 500, fontSize: '0.875rem', cursor: 'pointer',
+                }}
+              >Stay in Session</button>
+              <button
+                onClick={handleSaveAndLeave}
+                disabled={saving}
+                style={{
+                  flex: 1, background: 'var(--accent)', border: 'none',
+                  borderRadius: 8, padding: '10px', color: 'var(--accent-fg)',
+                  fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.875rem',
+                  cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.75 : 1,
+                }}
+              >{saving ? 'Saving…' : 'Save & Leave'}</button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <button
+                onClick={handleAbandon}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontFamily: 'DM Sans, sans-serif', fontSize: '0.78rem',
+                  color: 'var(--wrong)', textDecoration: 'underline', padding: 0,
+                }}
+              >Abandon Session</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Simulation lock modal ── */}
+      {showSimLockModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+        }}>
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            borderRadius: 14, padding: '36px 32px', maxWidth: 400, width: '90%', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '2rem', marginBottom: 16 }}>⏱</div>
+            <h3 style={{
+              fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.15rem',
+              margin: '0 0 12px', color: 'var(--text-primary)',
+            }}>You cannot leave during a simulation</h3>
+            <p style={{
+              fontFamily: 'DM Sans, sans-serif', fontSize: '0.875rem',
+              color: 'var(--text-secondary)', margin: '0 0 28px', lineHeight: 1.6,
+            }}>
+              The real LSAT does not allow breaks. Stay focused — you're building real test endurance.
+            </p>
+            <button
+              onClick={() => setShowSimLockModal(false)}
+              style={{
+                width: '100%', background: 'var(--accent)', border: 'none',
+                borderRadius: 8, padding: '12px', color: 'var(--accent-fg)',
+                fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
+                marginBottom: 16,
+              }}
+            >Return to Test</button>
+            <button
+              onClick={handleSimAbandon}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'DM Sans, sans-serif', fontSize: '0.72rem',
+                color: 'var(--wrong)', textDecoration: 'underline', padding: 0,
+              }}
+            >Abandon Test (score will not be recorded)</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Desktop sidebar ── */}
       <aside className="hidden md:flex" style={{
@@ -222,6 +387,7 @@ export function AppShell() {
               label={item.label}
               Icon={item.Icon}
               showProBadge={item.proGated && !isPro}
+              onNavClick={handleNavClick}
             />
           ))}
         </nav>
@@ -277,7 +443,14 @@ export function AppShell() {
 
               {/* Account Settings */}
               <button
-                onClick={() => { setDropdownOpen(false); navigate('/account') }}
+                onClick={(e) => {
+                  setDropdownOpen(false)
+                  if (isSessionActive) {
+                    handleNavClick(e as unknown as React.MouseEvent, '/account')
+                  } else {
+                    navigate('/account')
+                  }
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -420,7 +593,13 @@ export function AppShell() {
         }}
       >
         {NAV_ITEMS.map(item => (
-          <MobileTabItem key={item.to} to={item.to} label={item.label} Icon={item.Icon} />
+          <MobileTabItem
+            key={item.to}
+            to={item.to}
+            label={item.label}
+            Icon={item.Icon}
+            onNavClick={handleNavClick}
+          />
         ))}
       </nav>
     </div>

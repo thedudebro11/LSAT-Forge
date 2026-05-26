@@ -11,12 +11,13 @@ import { FreeLimitError } from '../hooks/useGenerateQuestions'
 
 export default function WeakSpotPage() {
   const navigate = useNavigate()
-  const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, recordTrapDiagnosis, reset } = useSession()
+  const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, recordTrapDiagnosis, reset, pauseSession } = useSession()
   const { profile, isPro } = useAuth()
   const { data: typeStats = [], isLoading: statsLoading } = useTypeStats()
   const [error, setError] = useState('')
   const [showExit, setShowExit] = useState(false)
   const [trapSelected, setTrapSelected] = useState(false)
+  const [pausing, setPausing] = useState(false)
 
   useEffect(() => {
     setTrapSelected(false)
@@ -46,6 +47,17 @@ export default function WeakSpotPage() {
   }
 
   const handleExit = () => { reset(); navigate('/dashboard') }
+
+  const handlePause = async () => {
+    setPausing(true)
+    try {
+      await pauseSession()
+    } catch {
+      setPausing(false)
+      setError('Failed to save session. Please try again.')
+    }
+  }
+
   const lastResponse = state.responses[state.responses.length - 1]
 
   if (state.status === 'loading') return <LoadingQuestions />
@@ -67,7 +79,13 @@ export default function WeakSpotPage() {
         <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.68rem', letterSpacing: '0.08em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
           Weak Spot Review
         </span>
-        <button onClick={() => setShowExit(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--text-muted)' }}>✕ Exit</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {error && <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '0.78rem', color: 'var(--wrong)' }}>{error}</span>}
+          <button onClick={() => setShowExit(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '0.78rem', color: 'var(--text-muted)', textDecoration: 'underline', padding: 0 }}>✕ Abandon</button>
+          <button onClick={handlePause} disabled={pausing} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 13px', cursor: pausing ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--text-secondary)', opacity: pausing ? 0.6 : 1 }}>
+            ⏸ {pausing ? 'Saving…' : 'Pause'}
+          </button>
+        </div>
       </div>
     )
 

@@ -1,7 +1,11 @@
 import { useNavigate, Link } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
+import { useSession } from '../context/SessionContext'
+import type { SessionMode, SessionCheckpoint } from '../context/SessionContext'
 import { useSessions } from '../hooks/useSessions'
 import { PageHeader } from '../components/PageHeader'
+import { supabase } from '../lib/supabase'
 
 function greeting() {
   const h = new Date().getHours()
@@ -103,10 +107,45 @@ function StatBox({ label, value, loading }: { label: string; value: string; load
 }
 
 export default function DashboardPage() {
-  const { profile, isPro } = useAuth()
+  const { profile, isPro, user } = useAuth()
   const { data: sessions = [], isLoading } = useSessions(5)
+  const { resumeSession } = useSession()
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+
+  const { data: pausedSession } = useQuery({
+    queryKey: ['paused-session', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('sessions')
+        .select('id, mode, checkpoint, started_at, question_types')
+        .eq('user_id', user!.id)
+        .eq('status', 'paused')
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return data
+    },
+    enabled: !!user,
+  })
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
+
+  function handleResume() {
+    if (!pausedSession?.checkpoint) return
+    resumeSession(
+      pausedSession.id,
+      pausedSession.mode as SessionMode,
+      pausedSession.checkpoint as SessionCheckpoint,
+    )
+    navigate(`/${pausedSession.mode}`)
+  }
+
+  async function handleDismissPaused() {
+    if (!pausedSession) return
+    await supabase.from('sessions').update({ status: 'abandoned' }).eq('id', pausedSession.id)
+    queryClient.invalidateQueries({ queryKey: ['paused-session', user?.id] })
+  }
 
   const totalQuestions = sessions.reduce((s, r) => s + (r.total_questions ?? 0), 0)
   const avgAccuracy = sessions.length
@@ -140,6 +179,39 @@ export default function DashboardPage() {
         title={`${greeting()}, ${firstName}.`}
         subtitle={isPro ? 'Pro plan active' : `${20 - (profile?.questions_used ?? 0)} free questions remaining`}
       />
+
+      {/* Resume banner */}
+      {pausedSession && (
+        <div style={{
+          background: 'rgba(228,224,52,0.07)',
+          border: '1px solid rgba(228,224,52,0.3)',
+          borderRadius: 10, padding: '16px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 16, marginBottom: 24, flexWrap: 'wrap',
+        }}>
+          <div>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 3 }}>
+              You have an unfinished {pausedSession.mode.charAt(0).toUpperCase() + pausedSession.mode.slice(1)} session
+            </div>
+            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              Question {(pausedSession.checkpoint as SessionCheckpoint)?.currentIndex + 1} of {(pausedSession.checkpoint as SessionCheckpoint)?.questions?.length ?? '?'} · Started {formatDate(pausedSession.started_at)}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button onClick={handleResume} style={{
+              background: 'var(--accent)', border: 'none', borderRadius: 7,
+              padding: '8px 18px', fontFamily: 'Syne, sans-serif', fontWeight: 700,
+              fontSize: '0.85rem', color: 'var(--accent-fg)', cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}>Resume Session →</button>
+            <button onClick={handleDismissPaused} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem',
+              color: 'var(--text-muted)', textDecoration: 'underline', padding: 0,
+            }}>Dismiss</button>
+          </div>
+        </div>
+      )}
 
       {/* Mode cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">

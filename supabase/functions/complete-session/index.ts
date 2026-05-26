@@ -73,13 +73,14 @@ serve(async (req) => {
     }))
   )
 
-  // Update session
+  // Update session and clear checkpoint
   await supabase.from('sessions').update({
     status: 'completed',
     correct_count: correct,
     score_pct: scorePct,
     time_taken_seconds: totalTimeSeconds,
     completed_at: new Date().toISOString(),
+    checkpoint: null,
   }).eq('id', sessionId)
 
   // Update type stats

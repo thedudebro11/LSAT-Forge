@@ -22,7 +22,8 @@ export interface Session {
   total_questions: number
   correct_count: number
   score_pct: number
-  status: 'active' | 'completed'
+  status: 'in_progress' | 'paused' | 'completed' | 'abandoned'
+  checkpoint?: unknown
   time_taken_seconds: number
   started_at: string
   completed_at?: string

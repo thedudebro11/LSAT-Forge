@@ -11,7 +11,13 @@ import type { Question, ResponseRecord } from '../types'
 
 export type { Question, ResponseRecord }
 
-type SessionMode = 'practice' | 'drill' | 'simulation' | 'weakspot'
+export type SessionMode = 'practice' | 'drill' | 'simulation' | 'weakspot'
+
+export interface SessionCheckpoint {
+  currentIndex: number
+  questions: Question[]
+  responses: ResponseRecord[]
+}
 
 type SessionStatus =
   | 'idle'
@@ -42,6 +48,7 @@ type Action =
   | { type: 'COMPLETE' }
   | { type: 'RESET' }
   | { type: 'RECORD_TRAP'; selectedTrapType: string; correctDiagnosis: boolean }
+  | { type: 'RESUME'; sessionId: string; mode: SessionMode; checkpoint: SessionCheckpoint }
 
 const INITIAL: SessionState = {
   status: 'idle', sessionId: null, mode: null,
@@ -126,6 +133,18 @@ function reducer(state: SessionState, action: Action): SessionState {
     case 'RESET':
       return INITIAL
 
+    case 'RESUME':
+      return {
+        ...INITIAL,
+        status: 'active',
+        sessionId: action.sessionId,
+        mode: action.mode,
+        questions: action.checkpoint.questions,
+        currentIndex: action.checkpoint.currentIndex,
+        responses: action.checkpoint.responses,
+        answerTimestamp: Date.now(),
+      }
+
     default:
       return state
   }
@@ -151,6 +170,8 @@ interface SessionContextValue {
   finishSession: () => Promise<void>
   completeSession: () => void
   reset: () => void
+  pauseSession: () => Promise<void>
+  resumeSession: (sessionId: string, mode: SessionMode, checkpoint: SessionCheckpoint) => void
 }
 
 const SessionContext = createContext<SessionContextValue | undefined>(undefined)
@@ -267,12 +288,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const completeSession = useCallback(() => dispatch({ type: 'COMPLETE' }), [])
   const reset = useCallback(() => dispatch({ type: 'RESET' }), [])
 
+  const pauseSession = useCallback(async () => {
+    if (!state.sessionId) return
+    const { error } = await supabase.functions.invoke('pause-session', {
+      body: {
+        sessionId: state.sessionId,
+        checkpoint: {
+          currentIndex: state.currentIndex,
+          questions: state.questions,
+          responses: state.responses,
+        },
+      },
+    })
+    if (error) throw new Error(error.message ?? 'Failed to save session')
+    localStorage.removeItem(BACKUP_KEY)
+    dispatch({ type: 'RESET' })
+    navigate('/dashboard')
+  }, [state.sessionId, state.currentIndex, state.questions, state.responses, navigate])
+
+  const resumeSession = useCallback((sessionId: string, mode: SessionMode, checkpoint: SessionCheckpoint) => {
+    dispatch({ type: 'RESUME', sessionId, mode, checkpoint })
+  }, [])
+
   return (
     <SessionContext.Provider value={{
       state, currentQuestion,
       startSession, answerQuestion, nextQuestion,
       flagQuestion, skipQuestion, recordTrapDiagnosis,
       finishSession, completeSession, reset,
+      pauseSession, resumeSession,
     }}>
       {children}
     </SessionContext.Provider>
