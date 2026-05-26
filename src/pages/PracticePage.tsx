@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useSession } from '../context/SessionContext'
 import { useAuth } from '../context/AuthContext'
 import { QuestionCard } from '../components/QuestionCard'
-import { ElaborativePrompt } from '../components/ElaborativePrompt'
 import { LoadingQuestions } from '../components/LoadingQuestions'
 import { PageHeader } from '../components/PageHeader'
 import { QUESTION_TYPES, DIFFICULTY_OPTIONS } from '../constants'
@@ -69,11 +68,9 @@ export default function PracticePage() {
   const [count, setCount] = useState(5)
   const [error, setError] = useState('')
   const [showExit, setShowExit] = useState(false)
-  const [elaborativeDone, setElaborativeDone] = useState(false)
   const [trapSelected, setTrapSelected] = useState(false)
 
   useEffect(() => {
-    setElaborativeDone(false)
     setTrapSelected(false)
   }, [state.currentIndex, state.sessionId])
 
@@ -119,20 +116,6 @@ export default function PracticePage() {
         }}>✕ Exit</button>
       </div>
     )
-
-    // Elaborative prompt — show before question for new LR questions with argument_gap
-    if (state.status === 'active' && !elaborativeDone && currentQuestion.argument_gap) {
-      return (
-        <div style={{ padding: '24px', maxWidth: 720, margin: '0 auto' }}>
-          {showExit && <ConfirmModal onConfirm={handleExit} onCancel={() => setShowExit(false)} />}
-          {exitBtn}
-          <ElaborativePrompt
-            stimulus={currentQuestion.stimulus}
-            onContinue={() => setElaborativeDone(true)}
-          />
-        </div>
-      )
-    }
 
     const canAdvance = trapSelected || lastResponse?.isCorrect || !currentQuestion.wrong_explanations?.length
 

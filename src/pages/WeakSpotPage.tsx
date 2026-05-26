@@ -4,7 +4,6 @@ import { useSession } from '../context/SessionContext'
 import { useAuth } from '../context/AuthContext'
 import { useTypeStats } from '../hooks/useTypeStats'
 import { QuestionCard } from '../components/QuestionCard'
-import { ElaborativePrompt } from '../components/ElaborativePrompt'
 import { LoadingQuestions } from '../components/LoadingQuestions'
 import { PageHeader } from '../components/PageHeader'
 import { QUESTION_TYPES } from '../constants'
@@ -17,11 +16,9 @@ export default function WeakSpotPage() {
   const { data: typeStats = [], isLoading: statsLoading } = useTypeStats()
   const [error, setError] = useState('')
   const [showExit, setShowExit] = useState(false)
-  const [elaborativeDone, setElaborativeDone] = useState(false)
   const [trapSelected, setTrapSelected] = useState(false)
 
   useEffect(() => {
-    setElaborativeDone(false)
     setTrapSelected(false)
   }, [state.currentIndex, state.sessionId])
 
@@ -73,18 +70,6 @@ export default function WeakSpotPage() {
         <button onClick={() => setShowExit(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--text-muted)' }}>✕ Exit</button>
       </div>
     )
-
-    if (state.status === 'active' && !elaborativeDone && currentQuestion.argument_gap) {
-      return (
-        <div style={{ padding: '24px', maxWidth: 720, margin: '0 auto' }}>
-          {exitModal}{header}
-          <ElaborativePrompt
-            stimulus={currentQuestion.stimulus}
-            onContinue={() => setElaborativeDone(true)}
-          />
-        </div>
-      )
-    }
 
     const canAdvance = trapSelected || lastResponse?.isCorrect || !currentQuestion.wrong_explanations?.length
 
