@@ -494,101 +494,124 @@ Schema:
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  const user = await getAuthUser(req)
-  if (!user) return json({ error: 'Unauthorized' }, 401)
+  try {
+    console.log('[generate-questions] invoked', req.method)
 
-  const supabase = serviceClient()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('tier, questions_used')
-    .eq('id', user.id)
-    .single()
+    const user = await getAuthUser(req)
+    if (!user) return json({ error: 'Unauthorized' }, 401)
+    console.log('[generate-questions] user ok:', user.id)
 
-  if (!profile) return json({ error: 'Profile not found' }, 404)
+    const supabase = serviceClient()
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tier, questions_used')
+      .eq('id', user.id)
+      .single()
 
-  const body = await req.json()
-  const { mode, questionTypes, difficulty, count: rawCount, section } = body as {
-    mode: string
-    questionTypes: string[]
-    difficulty: string
-    count: number
-    section?: string
+    if (!profile) return json({ error: 'Profile not found' }, 404)
+    console.log('[generate-questions] profile tier:', profile.tier, 'questions_used:', profile.questions_used)
+
+    const body = await req.json()
+    const { mode, questionTypes, difficulty, count: rawCount, section } = body as {
+      mode: string
+      questionTypes: string[]
+      difficulty: string
+      count: number
+      section?: string
+    }
+    const count = rawCount ?? 5
+    console.log('[generate-questions] params — mode:', mode, 'count:', count, 'difficulty:', difficulty, 'types:', questionTypes)
+
+    // Free tier limit
+    if (profile.tier === 'free' && profile.questions_used >= 20) {
+      return json({ error: 'FREE_LIMIT_REACHED' }, 403)
+    }
+
+    // Pro-only modes
+    const proOnlyModes = ['drill', 'simulation', 'weakspot']
+    if (proOnlyModes.includes(mode) && profile.tier === 'free') {
+      return json({ error: 'PRO_REQUIRED' }, 403)
+    }
+
+    const isRC = section === 'rc' || (mode === 'practice' && questionTypes.includes('rc'))
+    const systemPrompt = isRC ? RC_SYSTEM_PROMPT : LR_SYSTEM_PROMPT
+    const types = questionTypes.includes('all')
+      ? ['main_point', 'inference', 'strengthen', 'weaken', 'necessary_assumption', 'sufficient_assumption', 'flaw', 'parallel', 'principle_identify', 'principle_apply', 'method_of_reasoning', 'role_of_statement']
+      : questionTypes
+
+    const lrPrompt = (n: number) =>
+      `Generate ${n} original LSAT-style Logical Reasoning questions. Types to include: ${types.join(', ')}. Difficulty: ${difficulty}. Vary the topics. Return a JSON array matching the schema exactly — every question must include: id, type, difficulty, stimulus, argument_gap, stem, choices (5 strings), correctIndex (0-4), correct_explanation, wrong_explanations (4 entries with index/trap_type/trap_explanation).`
+
+    const rcPrompt =
+      `Generate one Reading Comprehension passage set with ${count} questions. Vary the topic. Make all content entirely original. Return JSON matching the schema exactly.`
+
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+    console.log('[generate-questions] ANTHROPIC_API_KEY present:', !!apiKey)
+
+    async function callAnthropic(label: string, prompt: string, maxTokens: number): Promise<unknown[]> {
+      console.log(`[generate-questions] ${label} — calling Anthropic, maxTokens:`, maxTokens)
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey!,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      })
+      console.log(`[generate-questions] ${label} — Anthropic status:`, resp.status)
+      const data = await resp.json()
+      if (!resp.ok) throw new Error(`Anthropic ${label} error ${resp.status}: ${JSON.stringify(data)}`)
+      if (!data.content?.[0]?.text) throw new Error(`Unexpected Anthropic response shape in ${label}`)
+      const clean = (data.content[0].text as string).replace(/```json|```/g, '').trim()
+      const parsed = JSON.parse(clean)
+      const result = Array.isArray(parsed) ? parsed : (parsed.questions ?? [])
+      console.log(`[generate-questions] ${label} — parsed ${result.length} questions`)
+      return result
+    }
+
+    let questions: unknown[]
+    if (isRC) {
+      questions = await callAnthropic('rc', rcPrompt, 12000)
+    } else if (count > 10) {
+      console.log('[generate-questions] large count — running parallel batches')
+      const half = Math.ceil(count / 2)
+      const [batch1, batch2] = await Promise.all([
+        callAnthropic('batch1', lrPrompt(half), 8000),
+        callAnthropic('batch2', lrPrompt(count - half), 8000),
+      ])
+      questions = [...batch1, ...batch2]
+    } else {
+      questions = await callAnthropic('single', lrPrompt(count), 8000)
+    }
+
+    console.log('[generate-questions] total questions:', questions.length, '— inserting session')
+
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .insert({
+        user_id: user.id,
+        mode,
+        status: 'in_progress',
+        question_types: types,
+        total_questions: count,
+      })
+      .select()
+      .single()
+
+    if (sessionError) throw new Error(`Session insert failed: ${sessionError.message}`)
+    console.log('[generate-questions] session created:', session!.id)
+
+    return json({ questions, sessionId: session!.id })
+
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[generate-questions] UNHANDLED ERROR:', message)
+    return json({ error: message }, 500)
   }
-  const count = rawCount ?? 5
-
-  // Free tier limit
-  if (profile.tier === 'free' && profile.questions_used >= 20) {
-    return json({ error: 'FREE_LIMIT_REACHED' }, 403)
-  }
-
-  // Pro-only modes
-  const proOnlyModes = ['drill', 'simulation', 'weakspot']
-  if (proOnlyModes.includes(mode) && profile.tier === 'free') {
-    return json({ error: 'PRO_REQUIRED' }, 403)
-  }
-
-  const isRC = section === 'rc' || (mode === 'practice' && questionTypes.includes('rc'))
-  const systemPrompt = isRC ? RC_SYSTEM_PROMPT : LR_SYSTEM_PROMPT
-  const types = questionTypes.includes('all')
-    ? ['main_point', 'inference', 'strengthen', 'weaken', 'necessary_assumption', 'sufficient_assumption', 'flaw', 'parallel', 'principle_identify', 'principle_apply', 'method_of_reasoning', 'role_of_statement']
-    : questionTypes
-
-  const lrPrompt = (n: number) =>
-    `Generate ${n} original LSAT-style Logical Reasoning questions. Types to include: ${types.join(', ')}. Difficulty: ${difficulty}. Vary the topics. Return a JSON array matching the schema exactly — every question must include: id, type, difficulty, stimulus, argument_gap, stem, choices (5 strings), correctIndex (0-4), correct_explanation, wrong_explanations (4 entries with index/trap_type/trap_explanation).`
-
-  const rcPrompt =
-    `Generate one Reading Comprehension passage set with ${count} questions. Vary the topic. Make all content entirely original. Return JSON matching the schema exactly.`
-
-  async function callAnthropic(prompt: string, maxTokens: number): Promise<unknown[]> {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-    const data = await resp.json()
-    console.log('Anthropic status:', resp.status)
-    if (!resp.ok) throw new Error(`Anthropic API error: ${resp.status} - ${JSON.stringify(data)}`)
-    if (!data.content?.[0]?.text) throw new Error(`Unexpected Anthropic response shape`)
-    const clean = (data.content[0].text as string).replace(/```json|```/g, '').trim()
-    const parsed = JSON.parse(clean)
-    return Array.isArray(parsed) ? parsed : parsed.questions ?? []
-  }
-
-  let questions: unknown[]
-  if (isRC) {
-    questions = await callAnthropic(rcPrompt, 12000)
-  } else if (count > 10) {
-    // Parallel batches to stay well within the edge function timeout
-    const half = Math.ceil(count / 2)
-    const [batch1, batch2] = await Promise.all([
-      callAnthropic(lrPrompt(half), 8000),
-      callAnthropic(lrPrompt(count - half), 8000),
-    ])
-    questions = [...batch1, ...batch2]
-  } else {
-    questions = await callAnthropic(lrPrompt(count), 8000)
-  }
-
-  const { data: session } = await supabase
-    .from('sessions')
-    .insert({
-      user_id: user.id,
-      mode,
-      status: 'in_progress',
-      question_types: types,
-      total_questions: count,
-    })
-    .select()
-    .single()
-
-  return json({ questions, sessionId: session!.id })
 })
