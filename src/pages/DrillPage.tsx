@@ -49,7 +49,7 @@ export default function DrillPage() {
     if (!questionType) { setError('Select a question type to drill.'); return }
     setError('')
     try {
-      await startSession({ mode: 'drill', questionTypes: [questionType], difficulty, count: 20 })
+      await startSession({ mode: 'drill', questionTypes: [questionType], difficulty, count: 10 })
     } catch (e) {
       if (e instanceof FreeLimitError) navigate('/upgrade')
       else setError('Failed to start drill. Try again.')
@@ -133,7 +133,7 @@ export default function DrillPage() {
 
   return (
     <div style={{ padding: '32px 24px', maxWidth: 600, margin: '0 auto' }}>
-      <PageHeader title="Drill Mode" subtitle="Master one question type — 20 focused questions" />
+      <PageHeader title="Drill Mode" subtitle="Master one question type — 10 focused questions" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div>
           <label style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.68rem', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
@@ -159,7 +159,7 @@ export default function DrillPage() {
           </div>
         </div>
         <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px', fontFamily: 'DM Sans, sans-serif', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-          20 questions · Instant explanations after each answer
+          10 questions · Instant explanations after each answer
         </div>
         {error && <p style={{ color: 'var(--wrong)', fontFamily: 'DM Sans, sans-serif', fontSize: '0.85rem', margin: 0 }}>{error}</p>}
         <button onClick={handleStart} style={{

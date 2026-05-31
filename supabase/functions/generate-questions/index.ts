@@ -539,8 +539,11 @@ serve(async (req) => {
       ? ['main_point', 'inference', 'strengthen', 'weaken', 'necessary_assumption', 'sufficient_assumption', 'flaw', 'parallel', 'principle_identify', 'principle_apply', 'method_of_reasoning', 'role_of_statement']
       : questionTypes
 
-    const lrPrompt = (n: number) =>
-      `Generate ${n} original LSAT-style Logical Reasoning questions. Types to include: ${types.join(', ')}. Difficulty: ${difficulty}. Vary the topics. Return a JSON array matching the schema exactly — every question must include: id, type, difficulty, stimulus, argument_gap, stem, choices (5 strings), correctIndex (0-4), correct_explanation, wrong_explanations (4 entries with index/trap_type/trap_explanation).`
+    // Drill uses a slimmer schema — no wrong_explanations, 1-sentence explanation.
+    // This cuts output tokens by ~45% so the response fits within the 60s HTTP gateway limit.
+    const lrPrompt = (n: number) => mode === 'drill'
+      ? `Generate ${n} original LSAT-style Logical Reasoning questions. Type: ${types.join(', ')} ONLY. Difficulty: ${difficulty}. Vary the topics. Return a JSON array — every question must include: id, type, difficulty, stimulus, argument_gap (1 sentence), stem, choices (5 strings), correctIndex (0-4), correct_explanation (1 sentence).`
+      : `Generate ${n} original LSAT-style Logical Reasoning questions. Types to include: ${types.join(', ')}. Difficulty: ${difficulty}. Vary the topics. Return a JSON array matching the schema exactly — every question must include: id, type, difficulty, stimulus, argument_gap, stem, choices (5 strings), correctIndex (0-4), correct_explanation, wrong_explanations (4 entries with index/trap_type/trap_explanation).`
 
     const rcPrompt =
       `Generate one Reading Comprehension passage set with ${count} questions. Vary the topic. Make all content entirely original. Return JSON matching the schema exactly.`
