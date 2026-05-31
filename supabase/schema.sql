@@ -47,7 +47,7 @@ create table if not exists public.sessions (
   user_id             uuid not null references auth.users(id) on delete cascade,
   mode                text not null check (mode in ('practice', 'simulation', 'drill')),
   status              text not null default 'in_progress'
-                        check (status in ('in_progress', 'completed', 'abandoned')),
+                        check (status in ('in_progress', 'paused', 'completed', 'abandoned')),
   question_types      text[] not null default '{}',
   total_questions     integer not null,
   correct_count       integer not null default 0,
