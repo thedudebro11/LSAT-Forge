@@ -548,7 +548,7 @@ serve(async (req) => {
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     console.log('[generate-questions] ANTHROPIC_API_KEY present:', !!apiKey)
 
-    async function callAnthropic(label: string, prompt: string, maxTokens: number): Promise<unknown[]> {
+    async function callAnthropic(label: string, prompt: string, maxTokens: number, retries = 1): Promise<unknown[]> {
       console.log(`[generate-questions] ${label} — calling Anthropic, maxTokens:`, maxTokens)
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -565,12 +565,28 @@ serve(async (req) => {
         }),
       })
       console.log(`[generate-questions] ${label} — Anthropic status:`, resp.status)
-      const data = await resp.json()
-      if (!resp.ok) throw new Error(`Anthropic ${label} error ${resp.status}: ${JSON.stringify(data)}`)
+
+      // 503 = Anthropic overloaded — transient, retry once after a short wait
+      if (resp.status === 503 && retries > 0) {
+        console.log(`[generate-questions] ${label} — 503 overloaded, retrying in 3s...`)
+        await new Promise(r => setTimeout(r, 3000))
+        return callAnthropic(label, prompt, maxTokens, retries - 1)
+      }
+
+      // Read as text first — a non-2xx response body may not be JSON
+      const text = await resp.text()
+      let data: { content?: Array<{ text: string }> }
+      try {
+        data = JSON.parse(text)
+      } catch {
+        throw new Error(`Anthropic ${label} returned non-JSON (status: ${resp.status}): ${text.slice(0, 200)}`)
+      }
+
+      if (!resp.ok) throw new Error(`Anthropic ${label} error ${resp.status}: ${text.slice(0, 300)}`)
       if (!data.content?.[0]?.text) throw new Error(`Unexpected Anthropic response shape in ${label}`)
-      const clean = (data.content[0].text as string).replace(/```json|```/g, '').trim()
+      const clean = data.content[0].text.replace(/```json|```/g, '').trim()
       const parsed = JSON.parse(clean)
-      const result = Array.isArray(parsed) ? parsed : (parsed.questions ?? [])
+      const result: unknown[] = Array.isArray(parsed) ? parsed : (parsed.questions ?? [])
       console.log(`[generate-questions] ${label} — parsed ${result.length} questions`)
       return result
     }
