@@ -99,7 +99,7 @@ function StatBox({ label, value, loading }: { label: string; value: string; load
       }}>{label}</div>
       {loading
         ? <Skeleton h={28} w={60} />
-        : <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.75rem', color: 'var(--text-primary)' }}>
+        : <div className="stat-num">
             {value}
           </div>}
     </div>
@@ -222,7 +222,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="stat-grid-3 mb-8">
         <StatBox label="Questions" value={String(totalQuestions)} loading={isLoading} />
         <StatBox label="Avg Accuracy" value={sessions.length ? `${avgAccuracy}%` : '—'} loading={isLoading} />
         <StatBox label="Tests Done" value={String(testsCompleted)} loading={isLoading} />

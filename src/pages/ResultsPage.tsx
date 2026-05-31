@@ -56,29 +56,29 @@ export default function ResultsPage() {
       />
 
       {/* Score hero */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
+      <div className="stat-grid-3" style={{ marginBottom: 32 }}>
         {isLoading ? (
           [1, 2, 3].map(i => <Skeleton key={i} h={90} />)
         ) : (
           <>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '20px' }}>
               <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Score</div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '2.25rem', color: scoreColor }}>{Math.round(scorePct)}%</div>
+              <div className="stat-num-lg" style={{ color: scoreColor }}>{Math.round(scorePct)}%</div>
             </div>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '20px' }}>
               <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Correct</div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '2.25rem', color: 'var(--text-primary)' }}>{correct}<span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}> / {total}</span></div>
+              <div className="stat-num-lg">{correct}<span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}> / {total}</span></div>
             </div>
             {session?.mode === 'simulation' && (
               <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '20px' }}>
                 <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Est. LSAT</div>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '2.25rem', color: 'var(--accent)' }}>{lsatScore}</div>
+                <div className="stat-num-lg" style={{ color: 'var(--accent)' }}>{lsatScore}</div>
               </div>
             )}
             {session?.mode !== 'simulation' && (
               <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '20px' }}>
                 <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Time</div>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '2.25rem', color: 'var(--text-primary)' }}>
+                <div className="stat-num-lg">
                   {session?.time_taken_seconds ? `${Math.round(session.time_taken_seconds / 60)}m` : '—'}
                 </div>
               </div>

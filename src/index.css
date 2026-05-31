@@ -37,3 +37,44 @@ body {
     display: none !important;
   }
 }
+
+/* ── Stat grids ──────────────────────────────────────────────────────────────
+   3-col layout that allows items to properly shrink on narrow screens.
+   min-width: 0 on children overrides the browser default of min-width: auto,
+   which would otherwise prevent grid cells from shrinking below content size. */
+.stat-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.stat-grid-3 > * {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Stat display number — 1.75rem on desktop, clamps down on mobile.
+   Must live in a CSS class (not inline style) so the @media override works. */
+.stat-num {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 1.75rem;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+/* Larger variant used by Results page (2.25rem desktop) */
+.stat-num-lg {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 2.25rem;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+@media (max-width: 479px) {
+  .stat-num,
+  .stat-num-lg {
+    font-size: clamp(1rem, 5.5vw, 1.75rem);
+  }
+}

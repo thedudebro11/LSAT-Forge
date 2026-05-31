@@ -195,6 +195,29 @@ Never add a `CHECK` constraint to `subscription_status` — Stripe may introduce
 
 ---
 
+## 12. `sessions.status` has four valid values — not two
+
+The `Session` type and DB column were historically typed as `'active' | 'completed'`. As of
+migration `002_session_persistence.sql`, the correct values are:
+
+```
+'in_progress'  — session created, actively being answered
+'paused'       — user saved via the navigation modal; checkpoint stored in sessions.checkpoint
+'completed'    — session finished normally; score recorded; checkpoint cleared
+'abandoned'    — user left without saving (nav modal → Abandon, or dismissed resume banner)
+```
+
+Code that writes `status: 'active'` to the DB will silently succeed (no check constraint) but
+will break the resume query on the dashboard, which filters on `status = 'paused'`. The
+`generate-questions` Edge Function creates rows with `status: 'in_progress'`.
+
+**The `checkpoint` column:** `sessions.checkpoint` is a JSONB column that stores
+`{ currentIndex, questions, responses }` when a session is paused. It is `null` for all other
+statuses. Do not read it directly from the frontend — resume is handled by the `DashboardPage`
+query + `SessionContext.resumeSession()`.
+
+---
+
 ## 11. The anon key is safe to expose; the service role key is not
 
 ```

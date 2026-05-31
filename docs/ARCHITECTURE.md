@@ -11,10 +11,12 @@ if the decision were reversed. Update this when you make a new architectural dec
 Browser (React + Vite)
     │
     ├── Supabase Auth (JWT sessions, Google OAuth)
-    ├── Supabase DB (Postgres, RLS, 5 tables)
+    ├── Supabase DB (Postgres, RLS, 6 tables)
     ├── Supabase Edge Functions (Deno runtime)
-    │       ├── generate-questions  → Anthropic API
+    │       ├── generate-questions    → Anthropic API
     │       ├── complete-session
+    │       ├── pause-session         ← saves checkpoint for cross-device resume
+    │       ├── flag-explanation      ← user feedback on AI explanations
     │       ├── create-checkout-session  → Stripe
     │       ├── stripe-webhook           ← Stripe events
     │       ├── cancel-subscription
@@ -239,19 +241,22 @@ use. Never use `!` (non-null assertion) on Supabase results — check and handle
 
 ## Status of Key Components (as of latest build)
 
-**Completed:**
-- `SessionContext` — quiz state machine (IDLE → LOADING → ACTIVE → REVIEWING → COMPLETE)
-- All question display components (QuestionCard, ChoiceButton, ExplanationBox, ProgressBar, QuestionTypeTag)
-- All data-fetching hooks (useProfile, useSessions, useTypeStats, useSimulationResults, useGenerateQuestions, useCompleteSession, useUpgrade)
-- Core page implementations: LandingPage, AuthPage, DashboardPage, AccountPage, SuccessPage
-- All Supabase Edge Functions (generate-questions, complete-session, create-checkout-session, stripe-webhook, cancel-subscription, create-portal-session)
-- Landing page, Auth page, Stripe integration
+**All 16 build prompts are complete. The app is production-ready.**
 
-**In progress or stub:**
-- Practice page (`src/pages/PracticePage.tsx`)
-- Drill page (`src/pages/DrillPage.tsx`)
-- Simulation page (`src/pages/SimulationPage.tsx`)
-- Weak Spot page (`src/pages/WeakSpotPage.tsx`)
-- Results page (`src/pages/ResultsPage.tsx`)
-- Analytics page (`src/pages/AnalyticsPage.tsx`)
-- Upgrade page (`src/pages/UpgradePage.tsx`)
+**Core infrastructure:**
+- `SessionContext` — quiz state machine (IDLE → LOADING → ACTIVE → REVIEWING → COMPLETE) + pause/resume/trap diagnosis
+- All question display components (QuestionCard, ChoiceButton, ExplanationBox, ProgressBar, QuestionTypeTag, TrapClassifier)
+- All data-fetching hooks (useProfile, useSessions, useTypeStats, useSimulationResults, useGenerateQuestions, useCompleteSession, useUpgrade, useFlagExplanation)
+- All Supabase Edge Functions (generate-questions, complete-session, pause-session, flag-explanation, create-checkout-session, stripe-webhook, cancel-subscription, create-portal-session)
+
+**All pages implemented:**
+- LandingPage, AuthPage, DashboardPage, PracticePage, DrillPage, SimulationPage, WeakSpotPage, ResultsPage, AnalyticsPage, UpgradePage, AccountPage, SuccessPage
+
+**Post-launch features added:**
+- Session persistence: pause/resume across devices via `sessions.checkpoint` JSONB column
+- Navigation protection: modal guards in AppShell prevent accidental session loss
+- Simulation lockout: separate modal prevents leaving during timed simulations
+- Trap classifier: wrong-answer type diagnosis on incorrect practice answers
+- Explanation feedback: users can flag AI explanations as helpful/not helpful
+- Responsive mobile stat cards: `stat-grid-3` / `stat-num` CSS utilities fix overflow at narrow widths
+- Mobile nav active-only labels: inactive tabs show icon only, active tab shows icon + label

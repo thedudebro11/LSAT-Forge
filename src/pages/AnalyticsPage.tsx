@@ -52,22 +52,22 @@ export default function AnalyticsPage() {
       <PageHeader title="Analytics" subtitle="Your performance trends and weak areas" />
 
       {/* Summary stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
+      <div className="stat-grid-3" style={{ marginBottom: 32 }}>
         {isLoading ? (
           [1, 2, 3].map(i => <Skeleton key={i} h={80} />)
         ) : (
           <>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '18px 20px' }}>
               <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Sessions</div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.75rem', color: 'var(--text-primary)' }}>{sessions.length}</div>
+              <div className="stat-num">{sessions.length}</div>
             </div>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '18px 20px' }}>
               <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Avg Accuracy</div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.75rem', color: 'var(--text-primary)' }}>{avgScore != null ? `${avgScore}%` : '—'}</div>
+              <div className="stat-num">{avgScore != null ? `${avgScore}%` : '—'}</div>
             </div>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '18px 20px' }}>
               <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Types Tracked</div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.75rem', color: 'var(--text-primary)' }}>{typeAccuracy.length}</div>
+              <div className="stat-num">{typeAccuracy.length}</div>
             </div>
           </>
         )}

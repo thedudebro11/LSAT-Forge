@@ -59,7 +59,10 @@ Global styles and design token definitions.
 ```
 
 **Additional rules:**
-- `.bottom-tab-bar { display: none !important }` at 768px+ media query to hide mobile nav on desktop
+- `.bottom-tab-bar { display: none !important }` at 768px+ to hide mobile nav on desktop
+- `.stat-grid-3` — 3-col grid with `min-width: 0` on children; collapses gracefully on narrow screens
+- `.stat-num` — Syne 800, `1.75rem`; `clamp(1rem, 5.5vw, 1.75rem)` below 480px
+- `.stat-num-lg` — Syne 800, `2.25rem`; same clamp below 480px (used by ResultsPage hero stats)
 - Tailwind directives (`@tailwind base/components/utilities`)
 
 **Do not** add color values in component files. Reference these variables.
@@ -99,6 +102,36 @@ interface Profile {
 }
 ```
 
+**Session.status values** (updated — see INVARIANTS §12):
+```typescript
+status: 'in_progress' | 'paused' | 'completed' | 'abandoned'
+```
+Also has `checkpoint?: unknown` (JSONB column for pause/resume).
+
+**Question interface** now includes optional fields for the trap-classifier feature:
+```typescript
+interface Question {
+  // ...base fields...
+  explanation?: string          // may be absent if wrong_explanations is used instead
+  argument_gap?: string
+  correct_explanation?: string
+  wrong_explanations?: Array<{
+    index: number
+    trap_type: string
+    trap_explanation: string
+  }>
+}
+```
+
+**ResponseRecord** now includes trap diagnosis fields:
+```typescript
+interface ResponseRecord {
+  // ...base fields...
+  selectedTrapType?: string
+  correctDiagnosis?: boolean
+}
+```
+
 ---
 
 ### `src/constants/index.ts`
@@ -110,6 +143,52 @@ Static lookup tables:
 ---
 
 ## `src/context/`
+
+### `src/context/SessionContext.tsx`
+**Exports:** `SessionProvider`, `useSession`, `SessionMode`, `SessionCheckpoint`, and re-exports `Question`, `ResponseRecord` from `src/types/index.ts`
+
+**State machine:** `idle → loading → active → reviewing → complete`
+
+**Context value (full current API):**
+```typescript
+{
+  state: SessionState
+  currentQuestion: Question | undefined
+  startSession: (params: GenerateParams) => Promise<void>
+  answerQuestion: (chosenIndex: number) => void
+  nextQuestion: () => void
+  flagQuestion: (index: number) => void
+  skipQuestion: () => void
+  recordTrapDiagnosis: (selectedTrapType: string, correctDiagnosis: boolean) => void
+  finishSession: () => Promise<void>
+  completeSession: () => void
+  reset: () => void
+  pauseSession: () => Promise<void>    // saves checkpoint to DB, dispatches RESET
+  resumeSession: (sessionId: string, mode: SessionMode, checkpoint: SessionCheckpoint) => void
+}
+```
+
+**`pauseSession()`** calls the `pause-session` Edge Function with `{ sessionId, checkpoint }`.
+On success, dispatches `RESET` (clears React state). The user is returned to the dashboard.
+
+**`resumeSession()`** dispatches `RESUME` action which sets status to `active` and restores
+questions, responses, and currentIndex from the checkpoint.
+
+**`recordTrapDiagnosis()`** mutates the last response in the responses array to add
+`selectedTrapType` and `correctDiagnosis` fields.
+
+**`SessionCheckpoint` interface:**
+```typescript
+interface SessionCheckpoint {
+  currentIndex: number
+  questions: Question[]
+  responses: ResponseRecord[]
+}
+```
+
+**localStorage backup key:** `lsat_session_backup` — written on every answer, cleared on complete/pause.
+
+---
 
 ### `src/context/AuthContext.tsx`
 **Exports:** `AuthProvider`, `useAuth`
@@ -168,20 +247,55 @@ The authenticated layout. Renders using `<Outlet/>` (React Router v6 layout rout
    - Avatar: inline with onError fallback to initial circle (accent bg)
 
 2. Main content: `<FreeTierBanner/>` + `<Outlet/>`
-3. Mobile bottom tab bar (visible below 768px via `className="md:hidden"`)
+3. Mobile bottom tab bar (visible below 768px)
 
-**Sidebar width:** 240px. Main content has `md:ml-[240px]` offset. The mobile tab bar
-adds `pb-16` to main content to prevent content being hidden behind it.
+**Sidebar width:** 240px. Main content has `md:ml-[240px]` offset.
 
-**Nav items configured in the `NAV_ITEMS` array at the top of the file.** Current items (7 total):
-Dashboard, Practice, Drill (pro), Simulation (pro), Weak Spot (pro), Analytics (pro), Account (free).
-To add a new nav item, add to that array. The `proGated` field controls whether the PRO badge shows.
+**NAV_ITEMS array:** Each entry has `{ label, mobileLabel, to, Icon, proGated }`.
+- `label` — used by desktop sidebar
+- `mobileLabel` — used by mobile tab bar only (e.g. "Weak Spot" → "Weak" to prevent wrapping)
+- `proGated` — shows PRO badge in desktop sidebar when `!isPro`
+
+**Mobile tab bar behavior:**
+- All 7 icons always visible, evenly spaced with `flex: 1`
+- **Active tab only** shows its label (accent yellow); inactive tabs show icon only (gray)
+- Label is always in DOM with `height: 10px` but `opacity: 0` when inactive — prevents height shift when switching tabs
+- `aria-label={label}` on each NavLink for screen reader accessibility
+- `whiteSpace: nowrap` and `overflow: hidden` prevent any label from wrapping
+
+**Navigation protection (session-aware):**
+- `handleNavClick` intercepts all NavLink clicks when a session is active
+- **Practice / Drill / Weak Spot sessions** → shows a modal with three options:
+  - Save & Leave → calls `pauseSession()`, navigates away
+  - Stay in Session → dismisses modal
+  - Abandon Session → marks session `abandoned` in DB, navigates away
+- **Simulation sessions** → shows a lockout modal (cannot pause simulations)
+  - Only option is to abandon (score not recorded) or return to test
 
 **User dropdown:**
 - Opens upward from the bottom user section
-- Click-outside handler uses `[]` dependency array (not [dropdownOpen]) to add listener once on mount
-- Shows name and email; Account and Sign Out buttons
-- Dropdown is modal: click Account or Sign Out closes it
+- Click-outside handler uses `[]` dependency array — listener added once on mount
+- Dropdown is closed by clicking Account or Sign Out
+
+---
+
+### `src/components/TrapClassifier.tsx`
+**Exports:** `TrapClassifier`
+
+**Props:** `onSelect: (trapType: string) => void`
+
+Shown after a user answers a practice/drill question incorrectly. Presents 5 labeled wrong-answer trap types (Opposite, Shell Game, Out of Scope, Distortion, Extreme Language). User picks which trap they fell for. This selection is recorded via `recordTrapDiagnosis()` in SessionContext and stored in the `responses` table as `selected_trap_type` / `correct_diagnosis`.
+
+Used by QuestionCard → ExplanationBox flow. Only appears on wrong answers when `wrong_explanations` array is present on the question.
+
+---
+
+### `src/hooks/useFlagExplanation.ts`
+**Exports:** `useFlagExplanation`
+
+TanStack Query mutation hook. Calls the `flag-explanation` Edge Function with `{ question_type, stimulus, stem, explanation, rating, comment }`. Used in `ExplanationBox` to let users rate AI explanations as helpful or not helpful.
+
+Returns standard `{ mutate, isPending, isSuccess, isError }`.
 
 ---
 
@@ -211,18 +325,18 @@ Action is right-aligned (e.g., a button). No data fetching.
 
 | File | Route | Auth | Status | Notes |
 |------|-------|------|--------|-------|
-| `LandingPage.tsx` | `/` | Public | ✅ Built | Marketing page with CTA |
-| `AuthPage.tsx` | `/login`, `/signup` | Public | ✅ Built | Tab toggle, Google OAuth + email/password |
-| `DashboardPage.tsx` | `/dashboard` | Protected | ✅ Built | Greeting, 4 mode cards, stats row, recent sessions table, skeleton loading |
-| `PracticePage.tsx` | `/practice` | Protected | ❌ Stub | Setup (question types, difficulty, count) + session flow |
-| `DrillPage.tsx` | `/drill` | Pro | ❌ Stub | Single type selector + session flow (20 questions) |
-| `SimulationPage.tsx` | `/simulation` | Pro | ❌ Stub | Pre-test screen, 81 questions across 3 sections with timing |
-| `WeakSpotPage.tsx` | `/weakspot` | Pro | ❌ Stub | Auto-generated weak area session |
-| `ResultsPage.tsx` | `/results/:sessionId` | Protected | ❌ Stub | Score, stats, accuracy by type, question breakdown |
-| `AnalyticsPage.tsx` | `/analytics` | Pro | ❌ Stub | Charts, type accuracy, score trends, weak spot callout |
-| `UpgradePage.tsx` | `/upgrade` | Protected | ❌ Stub | Pricing toggle (monthly $29 / annual $199 "Save 43%"), Stripe CTA |
-| `AccountPage.tsx` | `/account` | Protected | ✅ Built | Profile editing, subscription status, manage billing, cancel sub, delete account |
-| `SuccessPage.tsx` | `/success` | Protected | ✅ Built | Checkmark, "You're now Pro", 3-second auto-redirect to /dashboard with countdown |
+| `LandingPage.tsx` | `/` | Public | ✅ Done | Marketing page with CTA |
+| `AuthPage.tsx` | `/login`, `/signup` | Public | ✅ Done | Tab toggle, Google OAuth + email/password |
+| `DashboardPage.tsx` | `/dashboard` | Protected | ✅ Done | Greeting, 4 mode cards, stats, recent sessions, resume banner for paused sessions |
+| `PracticePage.tsx` | `/practice` | Protected | ✅ Done | Setup screen + full session flow with pause, trap classifier |
+| `DrillPage.tsx` | `/drill` | Pro | ✅ Done | Single type selector, 20 questions, pause, trap classifier |
+| `SimulationPage.tsx` | `/simulation` | Pro | ✅ Done | Pre-test screen, 81 questions, 3 sections, timer, flag/navigator, break screens |
+| `WeakSpotPage.tsx` | `/weakspot` | Pro | ✅ Done | Auto-targets lowest-accuracy types, pause, trap classifier |
+| `ResultsPage.tsx` | `/results/:sessionId` | Protected | ✅ Done | Score hero (stat-num-lg), accuracy by type bars, question breakdown table |
+| `AnalyticsPage.tsx` | `/analytics` | Pro | ✅ Done | Score trend chart (recharts), type accuracy bars, weak spot callout with Drill links |
+| `UpgradePage.tsx` | `/upgrade` | Protected | ✅ Done | Monthly $29 / Annual $199 toggle, Stripe Checkout CTA |
+| `AccountPage.tsx` | `/account` | Protected | ✅ Done | Profile editing, subscription status, manage billing, cancel sub |
+| `SuccessPage.tsx` | `/success` | Protected | ✅ Done | 3-second auto-redirect to /dashboard with countdown |
 
 ---
 
@@ -235,7 +349,7 @@ Action is right-aligned (e.g., a button). No data fetching.
 **Run order matters:** The file runs top-to-bottom. Tables before their dependents.
 Trigger must be created after the function it calls.
 
-**Tables:** `profiles`, `sessions`, `responses`, `type_stats`, `simulation_results`
+**Tables:** `profiles`, `sessions`, `responses`, `type_stats`, `simulation_results`, `flagged_explanations`
 
 **Functions:**
 - `increment_questions_used(p_user_id)` — increments counter, sets `updated_at`
@@ -244,6 +358,13 @@ Trigger must be created after the function it calls.
 - `handle_new_user()` — trigger function, auto-creates profile on auth.users INSERT
 
 **Trigger:** `on_auth_user_created` fires AFTER INSERT on `auth.users`, calls `handle_new_user`.
+
+**Applied migrations (in order):**
+- `001_learning_features.sql` — adds `selected_trap_type` / `correct_diagnosis` columns to `responses`; creates `flagged_explanations` table with RLS
+- `002_session_persistence.sql` — adds `checkpoint jsonb` column to `sessions`; documents that `status` now also accepts `'paused'` and `'abandoned'`
+
+**`sessions.status` column values:** `'in_progress'` | `'paused'` | `'completed'` | `'abandoned'`
+(was previously just `'active' | 'completed'` — old type definition was stale)
 
 ---
 
@@ -278,6 +399,21 @@ They predate the implementation and some details are stale (see INVARIANTS §2).
   "recharts": "^2.10.0"                       // analytics charts (not yet used)
 }
 ```
+
+**Edge Functions summary (8 total):**
+
+| Function | JWT required | What it does |
+|---|---|---|
+| `generate-questions` | Yes | Checks free limit + pro mode, calls Anthropic, creates session row, returns questions |
+| `complete-session` | Yes | Inserts responses, updates session, calls `update_type_stats` RPC, increments `questions_used` |
+| `pause-session` | Yes | Writes checkpoint JSONB to `sessions.checkpoint`, sets `status='paused'` |
+| `flag-explanation` | Yes | Inserts row into `flagged_explanations` with user rating and optional comment |
+| `create-checkout-session` | Yes | Creates/reuses Stripe customer, returns Checkout URL |
+| `stripe-webhook` | **No** (`--no-verify-jwt`) | Handles 4 Stripe events, sets `tier`/`subscription_status` |
+| `cancel-subscription` | Yes | Sets `cancel_at_period_end: true` on Stripe |
+| `create-portal-session` | Yes | Returns Stripe billing portal URL |
+
+---
 
 **No icon library is installed.** All icons in `AppShell.tsx` are hand-written inline SVGs.
 If you need many more icons, install `lucide-react` and replace the inline SVGs.

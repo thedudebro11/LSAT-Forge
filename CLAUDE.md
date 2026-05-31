@@ -31,13 +31,13 @@ $29/month or $199/year (save 43%): unlimited questions, full test simulation, an
 | 9 | Session context + state machine | ✅ Done | `src/context/SessionContext.tsx`, `src/components/LoadingQuestions.tsx` |
 | 10 | Question display components | ✅ Done | `QuestionCard`, `ChoiceButton`, `ExplanationBox`, `ProgressBar`, `QuestionTypeTag` |
 | 11 | Dashboard page | ✅ Done | `src/pages/DashboardPage.tsx` — mode cards, stats, recent sessions, skeleton loading |
-| 12 | Practice + Drill pages | ❌ Stub | `src/pages/PracticePage.tsx`, `DrillPage.tsx` |
-| 13 | Simulation page | ❌ Stub | `src/pages/SimulationPage.tsx` |
-| 14 | Results + Analytics pages | ❌ Stub | `src/pages/ResultsPage.tsx`, `AnalyticsPage.tsx` |
+| 12 | Practice + Drill pages | ✅ Done | `src/pages/PracticePage.tsx`, `DrillPage.tsx` |
+| 13 | Simulation page | ✅ Done | `src/pages/SimulationPage.tsx` — sections, breaks, timer, flag/navigator |
+| 14 | Results + Analytics pages | ✅ Done | `src/pages/ResultsPage.tsx`, `AnalyticsPage.tsx` |
 | 15 | Upgrade + Account + Success pages | ✅ Done | `src/pages/UpgradePage.tsx`, `AccountPage.tsx`, `SuccessPage.tsx` |
-| 16 | Polish + Deploy | ⚠️ Partial | vercel.json, .env.example exist; error boundary, additional skeletons in progress |
+| 16 | Polish + Deploy | ✅ Done | vercel.json, .env.example, session persistence, nav protection |
 
-**Next prompt to give Claude:** "Continue the LSAT Forge build from PROMPT 12 — Practice and Drill pages."
+**Status: All 16 prompts complete. App is production-ready.**
 
 ---
 

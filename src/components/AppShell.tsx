@@ -81,13 +81,13 @@ function AccountIcon() {
 // ── Nav config ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { label: 'Dashboard',  to: '/dashboard',  Icon: DashboardIcon,  proGated: false },
-  { label: 'Practice',   to: '/practice',   Icon: PracticeIcon,   proGated: false },
-  { label: 'Drill',      to: '/drill',      Icon: DrillIcon,      proGated: true  },
-  { label: 'Simulation', to: '/simulation', Icon: SimulationIcon, proGated: true  },
-  { label: 'Weak Spot',  to: '/weakspot',   Icon: WeakSpotIcon,   proGated: true  },
-  { label: 'Analytics',  to: '/analytics',  Icon: AnalyticsIcon,  proGated: true  },
-  { label: 'Account',    to: '/account',    Icon: AccountIcon,    proGated: false },
+  { label: 'Dashboard',  mobileLabel: 'Dashboard',  to: '/dashboard',  Icon: DashboardIcon,  proGated: false },
+  { label: 'Practice',   mobileLabel: 'Practice',   to: '/practice',   Icon: PracticeIcon,   proGated: false },
+  { label: 'Drill',      mobileLabel: 'Drill',      to: '/drill',      Icon: DrillIcon,      proGated: true  },
+  { label: 'Simulation', mobileLabel: 'Simulation', to: '/simulation', Icon: SimulationIcon, proGated: true  },
+  { label: 'Weak Spot',  mobileLabel: 'Weak',       to: '/weakspot',   Icon: WeakSpotIcon,   proGated: true  },
+  { label: 'Analytics',  mobileLabel: 'Analytics',  to: '/analytics',  Icon: AnalyticsIcon,  proGated: true  },
+  { label: 'Account',    mobileLabel: 'Account',    to: '/account',    Icon: AccountIcon,    proGated: false },
 ]
 
 // ── Sidebar nav link ──────────────────────────────────────────────────────────
@@ -142,30 +142,53 @@ function SideNavLink({ to, label, Icon, showProBadge, onNavClick }: {
 
 // ── Mobile tab item ───────────────────────────────────────────────────────────
 
-function MobileTabItem({ to, label, Icon, onNavClick }: {
+function MobileTabItem({ to, label, mobileLabel, Icon, onNavClick }: {
   to: string
   label: string
+  mobileLabel: string
   Icon: () => JSX.Element
   onNavClick: (e: React.MouseEvent, to: string) => void
 }) {
   return (
     <NavLink
       to={to}
+      aria-label={label}
       onClick={(e) => onNavClick(e, to)}
       style={({ isActive }) => ({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: '3px',
         flex: 1,
-        padding: '8px 0',
+        minWidth: 0,
+        padding: '8px 2px',
         textDecoration: 'none',
         color: isActive ? 'var(--accent)' : 'var(--text-muted)',
         transition: 'color 0.15s',
       })}
     >
-      <Icon />
-      <span style={{ fontSize: '0.65rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>{label}</span>
+      {({ isActive }) => (
+        <>
+          <Icon />
+          <span style={{
+            fontSize: '0.625rem',
+            fontFamily: 'DM Sans, sans-serif',
+            fontWeight: 600,
+            lineHeight: 1,
+            letterSpacing: '0.02em',
+            height: '10px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textAlign: 'center',
+            maxWidth: '100%',
+            opacity: isActive ? 1 : 0,
+            transition: 'opacity 0.15s',
+          }}>
+            {mobileLabel}
+          </span>
+        </>
+      )}
     </NavLink>
   )
 }
@@ -597,6 +620,7 @@ export function AppShell() {
             key={item.to}
             to={item.to}
             label={item.label}
+            mobileLabel={item.mobileLabel}
             Icon={item.Icon}
             onNavClick={handleNavClick}
           />
