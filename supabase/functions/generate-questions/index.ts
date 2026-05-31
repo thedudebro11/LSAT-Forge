@@ -533,45 +533,49 @@ serve(async (req) => {
     ? ['main_point', 'inference', 'strengthen', 'weaken', 'necessary_assumption', 'sufficient_assumption', 'flaw', 'parallel', 'principle_identify', 'principle_apply', 'method_of_reasoning', 'role_of_statement']
     : questionTypes
 
-  const userPrompt = isRC
-    ? `Generate one Reading Comprehension passage set with ${count} questions. Vary the topic. Make all content entirely original. Return JSON matching the schema exactly.`
-    : `Generate ${count} original LSAT-style Logical Reasoning questions. Types to include: ${types.join(', ')}. Difficulty: ${difficulty}. Vary the topics. Return a JSON array matching the schema exactly — every question must include: id, type, difficulty, stimulus, argument_gap, stem, choices (5 strings), correctIndex (0-4), correct_explanation, wrong_explanations (4 entries with index/trap_type/trap_explanation).`
+  const lrPrompt = (n: number) =>
+    `Generate ${n} original LSAT-style Logical Reasoning questions. Types to include: ${types.join(', ')}. Difficulty: ${difficulty}. Vary the topics. Return a JSON array matching the schema exactly — every question must include: id, type, difficulty, stimulus, argument_gap, stem, choices (5 strings), correctIndex (0-4), correct_explanation, wrong_explanations (4 entries with index/trap_type/trap_explanation).`
 
-  const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 16000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
-  })
+  const rcPrompt =
+    `Generate one Reading Comprehension passage set with ${count} questions. Vary the topic. Make all content entirely original. Return JSON matching the schema exactly.`
 
-  const aiData = await aiResp.json()
-
-  console.log('Anthropic response status:', aiResp.status)
-  console.log('Anthropic response:', JSON.stringify(aiData))
-
-  if (!aiResp.ok) {
-    throw new Error(`Anthropic API error: ${aiResp.status} - ${JSON.stringify(aiData)}`)
+  async function callAnthropic(prompt: string, maxTokens: number): Promise<unknown[]> {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    const data = await resp.json()
+    console.log('Anthropic status:', resp.status)
+    if (!resp.ok) throw new Error(`Anthropic API error: ${resp.status} - ${JSON.stringify(data)}`)
+    if (!data.content?.[0]?.text) throw new Error(`Unexpected Anthropic response shape`)
+    const clean = (data.content[0].text as string).replace(/```json|```/g, '').trim()
+    const parsed = JSON.parse(clean)
+    return Array.isArray(parsed) ? parsed : parsed.questions ?? []
   }
 
-  if (!aiData.content || !aiData.content[0] || !aiData.content[0].text) {
-    throw new Error(`Unexpected Anthropic response shape: ${JSON.stringify(aiData)}`)
-  }
-
-  let questions
-  try {
-    const rawText: string = aiData.content[0].text
-    const clean = rawText.replace(/```json|```/g, '').trim()
-    questions = JSON.parse(clean)
-  } catch (e) {
-    throw new Error(`Failed to parse questions JSON: ${(e as Error).message}`)
+  let questions: unknown[]
+  if (isRC) {
+    questions = await callAnthropic(rcPrompt, 12000)
+  } else if (count > 10) {
+    // Parallel batches to stay well within the edge function timeout
+    const half = Math.ceil(count / 2)
+    const [batch1, batch2] = await Promise.all([
+      callAnthropic(lrPrompt(half), 8000),
+      callAnthropic(lrPrompt(count - half), 8000),
+    ])
+    questions = [...batch1, ...batch2]
+  } else {
+    questions = await callAnthropic(lrPrompt(count), 8000)
   }
 
   const { data: session } = await supabase
