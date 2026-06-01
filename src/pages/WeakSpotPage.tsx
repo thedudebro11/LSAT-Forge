@@ -39,7 +39,7 @@ export default function WeakSpotPage() {
     setError('')
     const types = weakTypes.length > 0 ? weakTypes : ['all']
     try {
-      await startSession({ mode: 'weakspot', questionTypes: types, difficulty: 'mixed', count: 20 })
+      await startSession({ mode: 'weakspot', questionTypes: types, difficulty: 'mixed', count: 10 })
     } catch (e) {
       if (e instanceof FreeLimitError) navigate('/upgrade')
       else setError('Failed to start session. Try again.')
@@ -151,7 +151,7 @@ export default function WeakSpotPage() {
             </div>
           </div>
           <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px', fontFamily: 'DM Sans, sans-serif', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            20 questions · Mixed difficulty · Instant explanations
+            10 questions · Mixed difficulty · Instant explanations
           </div>
           {error && <p style={{ color: 'var(--wrong)', fontFamily: 'DM Sans, sans-serif', fontSize: '0.85rem', margin: 0 }}>{error}</p>}
           <button onClick={handleStart} style={{ background: 'var(--accent)', color: 'var(--accent-fg)', border: 'none', borderRadius: 8, padding: '13px 0', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1rem', cursor: 'pointer' }}>

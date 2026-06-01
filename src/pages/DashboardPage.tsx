@@ -216,7 +216,7 @@ export default function DashboardPage() {
       {/* Mode cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <ModeCard title="Practice" desc="Generate unlimited practice questions. Pick your types and difficulty." to="/practice" locked={false} symbol="📝" />
-        <ModeCard title="Drill Mode" desc="Master one question type at a time. 20 focused questions." to="/drill" locked={!isPro} symbol="🎯" />
+        <ModeCard title="Drill Mode" desc="Master one question type at a time. 10 focused questions." to="/drill" locked={!isPro} symbol="🎯" />
         <ModeCard title="Full Test Simulation" desc="81 questions, 3 sections, real 35-minute countdown." to="/simulation" locked={!isPro} symbol="⏱" />
         <ModeCard title="Weak Spot Review" desc="Auto-targets your lowest-accuracy question types." to="/weakspot" locked={!isPro} symbol="📊" />
       </div>
