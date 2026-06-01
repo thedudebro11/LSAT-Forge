@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSession } from '../context/SessionContext'
+import type { SessionCheckpoint, SessionMode } from '../context/SessionContext'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import { QuestionCard } from '../components/QuestionCard'
 import { LoadingQuestions } from '../components/LoadingQuestions'
 import { PageHeader } from '../components/PageHeader'
@@ -26,8 +29,9 @@ function Chip({ label, selected, onClick }: { label: string; selected: boolean; 
 export default function DrillPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, recordTrapDiagnosis, reset, pauseSession } = useSession()
-  const { profile, isPro } = useAuth()
+  const { state, currentQuestion, startSession, answerQuestion, nextQuestion, skipQuestion, recordTrapDiagnosis, reset, pauseSession, resumeSession } = useSession()
+  const { user, profile, isPro } = useAuth()
+  const queryClient = useQueryClient()
 
   const [questionType, setQuestionType] = useState(searchParams.get('type') ?? '')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
@@ -35,6 +39,37 @@ export default function DrillPage() {
   const [showExit, setShowExit] = useState(false)
   const [trapSelected, setTrapSelected] = useState(false)
   const [pausing, setPausing] = useState(false)
+  const [confirmAbandon, setConfirmAbandon] = useState(false)
+
+  const { data: pausedDrill } = useQuery({
+    queryKey: ['paused-session', user?.id, 'drill'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('sessions')
+        .select('id, mode, checkpoint, started_at')
+        .eq('user_id', user!.id)
+        .eq('status', 'paused')
+        .eq('mode', 'drill')
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return data
+    },
+    enabled: !!user && state.status === 'idle',
+  })
+
+  function handleResumePaused() {
+    if (!pausedDrill?.checkpoint) return
+    resumeSession(pausedDrill.id, 'drill' as SessionMode, pausedDrill.checkpoint as SessionCheckpoint)
+  }
+
+  async function handleAbandonPaused() {
+    if (!pausedDrill) return
+    await supabase.from('sessions').update({ status: 'abandoned' }).eq('id', pausedDrill.id)
+    queryClient.invalidateQueries({ queryKey: ['paused-session', user?.id, 'drill'] })
+    queryClient.invalidateQueries({ queryKey: ['paused-session', user?.id] })
+    setConfirmAbandon(false)
+  }
 
   useEffect(() => {
     setTrapSelected(false)
@@ -134,6 +169,32 @@ export default function DrillPage() {
   return (
     <div style={{ padding: '32px 24px', maxWidth: 600, margin: '0 auto' }}>
       <PageHeader title="Drill Mode" subtitle="Master one question type — 10 focused questions" />
+
+      {/* Paused session guard */}
+      {pausedDrill && !confirmAbandon && (
+        <div style={{ background: 'rgba(228,224,52,0.07)', border: '1px solid rgba(228,224,52,0.3)', borderRadius: 10, padding: '16px 20px', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <div style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>⏸ You have a paused Drill session</div>
+            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 3 }}>
+              Question {((pausedDrill.checkpoint as SessionCheckpoint)?.currentIndex ?? 0) + 1} of {(pausedDrill.checkpoint as SessionCheckpoint)?.questions?.length ?? '?'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button onClick={handleResumePaused} style={{ background: 'var(--accent)', color: 'var(--accent-fg)', border: 'none', borderRadius: 7, padding: '7px 16px', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>Resume →</button>
+            <button onClick={() => setConfirmAbandon(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'underline', padding: 0 }}>Start fresh</button>
+          </div>
+        </div>
+      )}
+      {pausedDrill && confirmAbandon && (
+        <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '16px 20px', marginBottom: 8 }}>
+          <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '0.875rem', color: 'var(--text-primary)', marginBottom: 12 }}>Abandon your saved progress? This can't be undone.</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={handleAbandonPaused} style={{ background: 'var(--wrong)', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 16px', fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>Yes, abandon</button>
+            <button onClick={() => setConfirmAbandon(false)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)', borderRadius: 7, padding: '7px 16px', fontFamily: 'DM Sans, sans-serif', fontSize: '0.85rem', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div>
           <label style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.68rem', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
@@ -162,11 +223,14 @@ export default function DrillPage() {
           10 questions · Instant explanations after each answer
         </div>
         {error && <p style={{ color: 'var(--wrong)', fontFamily: 'DM Sans, sans-serif', fontSize: '0.85rem', margin: 0 }}>{error}</p>}
-        <button onClick={handleStart} style={{
-          background: 'var(--accent)', color: 'var(--accent-fg)', border: 'none',
+        <button onClick={handleStart} disabled={!!pausedDrill} style={{
+          background: pausedDrill ? 'var(--bg-elevated)' : 'var(--accent)',
+          color: pausedDrill ? 'var(--text-muted)' : 'var(--accent-fg)',
+          border: pausedDrill ? '1px solid var(--border)' : 'none',
           borderRadius: 8, padding: '13px 0',
-          fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1rem', cursor: 'pointer',
-        }}>Start Drill →</button>
+          fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1rem',
+          cursor: pausedDrill ? 'not-allowed' : 'pointer',
+        }}>{pausedDrill ? 'Resume or abandon your paused session first' : 'Start Drill →'}</button>
       </div>
     </div>
   )
